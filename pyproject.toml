@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agere"
+authors = [
+  { name="Xueao Chao", email="chaoxueao@gmail.com" },
+]
+description = "The tool is used for building and driving workflows specifically tailored for AI initiatives. It can be used to construct AI agents."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+dynamic = ["version"]
+classifiers = [
+    'Development Status :: 3 - Alpha',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3',
+    'Operating System :: OS Independent',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+]
+keywords = ["agents", "AI"]
+dependencies = []
+
+
+[project.urls]
+"Homepage" = "https://github.com/happyapplehorse/agere"
+"Bug Tracker" = "https://github.com/happyapplehorse/agere/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "agere.__version__"}
