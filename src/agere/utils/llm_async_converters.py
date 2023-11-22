@@ -56,6 +56,7 @@ class LLMAsyncAdapter:
             self._at_receiving_start = at_receiving_start
         if at_receiving_end is not None:
             self._at_receiving_end = at_receiving_end
+        self.received_message = []
         is_first_time = True
         response_iter = iter(response)
         while True:
