@@ -16,6 +16,8 @@ from typing import (
     Iterable,
     Literal,
     Final,
+    TypedDict,
+    Callable,
     cast,
 )
 
@@ -609,16 +611,30 @@ def handler(password):
     return decorator
 
 
+class Params(TypedDict):
+    args: tuple
+    kwargs: dict
+
+
+class RequiredCallbackDict(TypedDict):
+    function: Callable
+
+
+class CallbackDict(RequiredCallbackDict, total=False):
+    params: Params
+    inject_task_node: bool
+
+
 class Callback:
     def __init__(
         self,
-        at_job_start: list | None = None,
-        at_handler_start: list | None = None,
-        at_exception: list | None = None,
-        at_terminate: list | None = None,
-        at_handler_end: list | None = None,
-        at_job_end: list | None = None,
-        at_commander_end: list | None = None,
+        at_job_start: list[CallbackDict] | None = None,
+        at_handler_start: list[CallbackDict] | None = None,
+        at_exception: list[CallbackDict] | None = None,
+        at_terminate: list[CallbackDict] | None = None,
+        at_handler_end: list[CallbackDict] | None = None,
+        at_job_end: list[CallbackDict] | None = None,
+        at_commander_end: list[CallbackDict] | None = None,
         task_node: TaskNode | None = None,
         task_node_auto_lock_num: int | None = None,
     ):

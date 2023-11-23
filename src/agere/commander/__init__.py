@@ -7,6 +7,7 @@ from ._commander import (
     Callback,
     Job,
     BasicJob,
+    CallbackDict,
 )
 from ._exceptions import (
     AttributeNotSetError,
@@ -30,4 +31,5 @@ __all__ = [
     "NotTaskerError",
     "CommanderNotRunError",
     "CommanderAlreadyRunningError",
+    "CallbackDict",
 ]
