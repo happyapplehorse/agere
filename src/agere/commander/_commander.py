@@ -266,7 +266,11 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         """Start the commander loop.
 
         If there is already a commander loop running,
-        it will use that instead of throwing a CommanderAlreadyRunningError.
+        it will use that instead of throwing a CommanderAlreadyRunningError,
+        and this method returns immediately without blocking.
+        If there is no running commander loop,
+        it will start one and block the current thread to run this commander loop,
+        returning only after the commander loop has finished. 
 
         Args:
             job:
@@ -537,7 +541,7 @@ def tasker(password):
         """Decorate a task in a job.
         
         It Dose:
-            If the task return a Coroutine object, create task to run it.
+            If the task return a HandlerCoroutine, call_handler to run it.
             Remove it self from the job when it is done automatically.
         "self_job" refers to the job instance.
         """
@@ -679,6 +683,9 @@ def handler(password):
 
     Handlers decorated with this decorator must be a coroutine function,
     and should not contain time-consuming tasks that block the thread.
+    The handler can be either a method of a class or a regular function.
+    If it is a regular function, it cannot be a nested function,
+    as it would then be recognized as a method within a class.
     """
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
@@ -1047,10 +1054,10 @@ class ComEnd(Job):
 
 class BasicJob(Job):
     """A simple job that calls a handler."""
-    def __init__(self, job_content: Coroutine):
+    def __init__(self, job_content: HandlerCoroutine):
         super().__init__()
         self.job_content = job_content
     
     @tasker(PASS_WORD)
-    async def task(self) -> Coroutine:
+    async def task(self) -> HandlerCoroutine:
         return self.job_content
