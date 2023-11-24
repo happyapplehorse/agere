@@ -44,11 +44,13 @@ class TaskNode(metaclass=ABCMeta):
         self._state: Literal["PENDING", "ACTIVE", "TERMINATED", "COMPLETED"] = "PENDING"
     
     def add_child(self, child: TaskNode) -> None:
+        """Add a tasknode as child of this tasknode."""
         self._children.append(child)
         child._parent = self
         child._state = "ACTIVE"
     
     async def del_child(self, child: TaskNode) -> None:
+        """Remove the tasknode from the children list and do the 'done check'."""
         try:
             self._children.remove(child)
         except ValueError:
@@ -65,6 +67,7 @@ class TaskNode(metaclass=ABCMeta):
 
     @abstractmethod
     async def _do_at_done(self):
+        """This method is automatically called when the tasknode is completed."""
         ...
 
     @property
@@ -109,8 +112,11 @@ class TaskNode(metaclass=ABCMeta):
         return chain
 
     async def terminate_task_node(self):
-        """Terminate the task_node. This involves detaching the node along with its entire connected subtree from its parent node.
-        The parent node will immediately consider this child node as completed, but the detached subtree may continue to run,
+        """Terminate the task_node.
+
+        This involves detaching the node along with its entire connected subtree from its parent node.
+        The parent node will immediately consider this child node as completed,
+        but the detached subtree may continue to run,
         potentially leading to side effects. The 'close_task_node' method is safer, but it's not entirely foolproof.
         """
         self._children.clear()
@@ -208,9 +214,35 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             return self.__running
     
     def is_empty(self) -> bool:
+        """Check if the __job_queue of the commander is empty."""
         return self.__job_queue.empty() and not self._children
 
     def run(self, job: Job | Sequence[Job] | None = None, auto_exit: bool = False, new_queue: bool = True) -> None | T:
+        """Start the commander loop.
+
+        It places the job into the loop for execution.
+        If auto_exit is set to True, then the loop will automatically exit once the job has finished.
+
+        Args:
+            job:
+                This job will be added to the __job_queue, waiting to be run by the commander loop.
+                It can be a single job or a sequence of jobs.
+            auto_exit: If True, the commander loop will automatically eixt after all tasks have been completed.
+            new_queue:
+                Reset the __job_queue.
+                If the commander loop has been previously run and closed,
+                there may be residual tasks in the __job_queue.
+                This switch allows setting the __job_queue to a new queue when starting the commander loop.
+
+        Raises:
+            CommanderAlreadyRunningError: Throw this exception when there is an existing commander loop running.
+
+        Returns:
+            None | T:
+                When the commander loop ends, return the result specified by the self.exit() method.
+                The type of the return value can be specified through generics when instantiating the CommanderAsync.
+                If the end is not caused by the exit method, return None.
+        """
         with self._running_lock:
             if self.__running is True:
                 raise CommanderAlreadyRunningError("Commander is running.")
@@ -231,6 +263,27 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         return self._return_result
 
     def run_auto(self, job: Job | Sequence[Job], auto_exit: bool = True, new_queue: bool = True) -> bool:
+        """Start the commander loop.
+
+        If there is already a commander loop running,
+        it will use that instead of throwing a CommanderAlreadyRunningError.
+
+        Args:
+            job:
+                This job will be added to the __job_queue, waiting to be run by the commander loop.
+                It can be a single job or a sequence of jobs.
+            auto_exit: If True, the commander loop will automatically eixt after all tasks have been completed.
+            new_queue:
+                Reset the __job_queue.
+                If the commander loop has been previously run and closed,
+                there may be residual tasks in the __job_queue.
+                This switch allows setting the __job_queue to a new queue when starting the commander loop.
+
+        Returns:
+            bool:
+                Return True if a new commander loop is started.
+                Return False if using an already existing, running commander loop.
+        """
         with self._running_lock:
             if self.__running is True:
                 if job is not None:
@@ -256,11 +309,11 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         return True
 
     def exit(self, return_result: T | None = None, wait: bool = True) -> None:
-        """Exit the _commander_async loop.
+        """Exit the commander loop.
 
         Args:
-            return_result: this value will be returned by self.run()
-            wait{bool}: whether return only after the commander loop has truly finished. The default value is True.
+            return_result: This value will be returned by self.run()
+            wait: Whether return only after the commander loop has truly finished.
         """
         with self._running_lock:
             if self.__running is False:
@@ -277,6 +330,11 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             self._return_result = return_result
 
     def wait_for_exit(self) -> None | T:
+        """Wait for the commander loop to end.
+
+        This will block the current thread until the commander loop ends,
+        and this method returns the value specified by self.exit().        
+        """
         # Because this could be a potentially prolonged and blocking wait, using a lock might lead to a deadlock.
         # Thus, we avoid waiting within the lock here.
         # If the following condition is met, it indicates that it is running between
@@ -289,9 +347,19 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         return self._return_result
 
     async def _commander_async(self, init_job: Job | Sequence[Job] | None = None, auto_exit: bool = False) -> None:
-        """The core of the commander runs a loop to dispatch tasks.
+        """The core of the commander, runs a loop to dispatch tasks.
+
         In each commander, there is only one running loop to ensure thread safety.
         If coordination between multiple commanders(loops) is required, a thread-safe API can be used.
+        
+        Args:
+            init_job:
+                This job will be added to the __job_queue automatically, waiting to be run by the commander loop.
+                It can be a single job or a sequence of jobs.
+            auto_exit: If True, the commander loop will automatically eixt after all tasks have been completed.
+
+        Raises:
+            NotTaskerError: When scheduling a job, if the task of the job is not an actual task object, throw this exception.
         """
         # initial job
         if init_job is not None:
@@ -401,6 +469,11 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         await self.__job_queue.put(job)
 
     def put_job_threadsafe(self, job: Job) -> None:
+        """Add a job to this commander in a thread-safe manner.
+
+        Raises:
+            CommanderNotRunError: Throw this error when commander loop is not running.        
+        """
         event_loop = self._event_loop
         if event_loop is None:
             raise CommanderNotRunError(self)
@@ -440,6 +513,11 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         return task
 
     def call_handler_threadsafe(self, handler: HandlerCoroutine):
+        """Schedule a handler to be called in this commander in a thread-safe manner.
+
+        Raises:
+            CommanderNotRunError: Throw this error when commander loop is not running.        
+        """
         event_loop = self._event_loop
         if event_loop is None:
             raise CommanderNotRunError(self)
@@ -447,13 +525,17 @@ class CommanderAsync(CommanderAsyncInterface[T]):
 
 
 def tasker(password):
+    """Decorator for tasker
+
+    Tasks decorated with this decorator should not contain time-consuming tasks that block the thread.
+    """
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
         "Time-consuming tasks pose a risk of blocking the commander. "
         "The correct password is: I assure all time-consuming tasks are delegated externally")
     def decorator(func):
-        """
-        Decorate a task in a job.
+        """Decorate a task in a job.
+        
         It Dose:
             If the task return a Coroutine object, create task to run it.
             Remove it self from the job when it is done automatically.
@@ -484,6 +566,14 @@ def tasker(password):
 
 
 class HandlerCoroutine(TaskNode):
+    """Handler object
+
+    It can be awaited.
+
+    Attributes:
+        coro (Coroutine): The coroutine object wrapped by HandlerCoroutine.
+        callback (Callback): Callback of the handler.
+    """
     def __init__(self):
         super().__init__()
         self._handler_ = True
@@ -491,10 +581,15 @@ class HandlerCoroutine(TaskNode):
         self._callback: Callback | None = None
 
     async def _do_at_done(self):
+        """This method is automatically called when the handler is completed.
+
+        It executes the callback functions specified by 'at_handler_end'.
+        """
         if self._callback is not None:
             await self.commander._callback_handle(callback=self._callback, which="at_handler_end", task_node=self)
     
     async def wrap_coroutine(self):
+        """Wrap the coroutine of handler."""
         # handle "at_handler_start" callback
         if self._callback is not None:
             await self.commander._callback_handle(callback=self._callback, which="at_handler_start", task_node=self)
@@ -514,11 +609,31 @@ class HandlerCoroutine(TaskNode):
     def __await__(self):
         return self.wrap_coroutine().__await__()
 
-    async def put_job(self, job: Job, parent: TaskNode | None = None, requester: TaskNode | None = None):
+    async def put_job(self, job: Job, parent: TaskNode | None = None, requester: TaskNode | None = None) -> None:
+        """Add a job.
+
+        Args:
+            job: The job to be added.
+            parent: The parent of the job, defaulting to None, indicating the parent is this handler.
+            requester:
+                The requester of the put_job request,
+                defaulting to None, indicating the requester is this handler.
+                This parameter may be used when terminating a tasknode.
+        """
         commander = self.commander
         await commander._put_job(job=job, parent=parent or self, requester=requester)
 
     def call_handler(self, handler: HandlerCoroutine, parent: TaskNode | None = None, requester: TaskNode | None = None):
+        """Call a handler.
+
+        Args:
+            handler: The handler to be called.
+            parent: The parent of the job, defaulting to None, indicating the parent is this handler.
+            requester:
+                The requester of the put_job request,
+                defaulting to None, indicating the requester is this handler.
+                This parameter may be used when terminating a tasknode.
+        """
         commander = self.commander
         commander._call_handler(handler=handler, parent=parent or self, requester=requester)
     
@@ -529,8 +644,14 @@ class HandlerCoroutine(TaskNode):
     def add_callback_functions(
         self,
         which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
-        functions_info: dict | list[dict],
+        functions_info: CallbackDict | list[CallbackDict],
     ) -> None:
+        """Add callback functions.
+
+        Args:
+            which: Specify the type of the callback functions to be added.
+            functions_info: The dict of the callback functions.
+        """
         if self._callback is None:
             self._callback = Callback()
         when_callback = getattr(self._callback, which)
@@ -541,6 +662,7 @@ class HandlerCoroutine(TaskNode):
         self._callback._task_node = self
 
     def add_callback(self, callback: Callback | list[Callback | None]) -> None:
+        """Add callback."""
         if isinstance(callback, list):
             callback_ = Callback.merge(callback)
         else:
@@ -553,6 +675,11 @@ class HandlerCoroutine(TaskNode):
 
 
 def handler(password):
+    """Decorator for handler
+
+    Handlers decorated with this decorator must be a coroutine function,
+    and should not contain time-consuming tasks that block the thread.
+    """
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
         "Time-consuming tasks pose a risk of blocking the commander. "
@@ -621,11 +748,41 @@ class RequiredCallbackDict(TypedDict):
 
 
 class CallbackDict(RequiredCallbackDict, total=False):
+    """The dict of functions_info in Callback.
+
+    Keys:
+        function (Callable): Required.
+        params (Params): NotRequired.
+        inject_task_node (bool): NotRequired.
+    """
     params: Params
     inject_task_node: bool
 
 
 class Callback:
+    """Callback object.
+
+    It will be automatically executed as a callback by the commander at the appropriate time.
+    The supported callback types:
+        at_job_start: Executes when the job is going to run.
+        at_handler_start: Executes when the handler is going to run.
+        at_exception: Executes when an exception occurs.
+        at_terminate: Executes when the tasknode is terminated.
+        at_handler_end: Executes when the handler is finished.
+        at_job_end: Executes when the job is finished.
+        at_commander_end: Executes when the commander loop finish.
+
+    Attributes:
+        at_job_start (list[CallbackDict]): Dict information of callback functions.
+        at_handler_start(list[CallbackDict]): Dict information of callback functions.
+        at_exception (list[CallbackDict]): Dict information of callback functions.
+        at_terminate (list[CallbackDict]): Dict information of callback functions.
+        at_handler_end (list[CallbackDict]): Dict information of callback functions.
+        at_job_end (list[CallbackDict]): Dict information of callback functions.
+        at_commander_end (list[CallbackDict]): Dict information of callback functions.
+        task_node (TaskNode):
+            The value of the task_node parameter that is automatically passed back when inject_task_node is True.
+    """
     def __init__(
         self,
         at_job_start: list[CallbackDict] | None = None,
@@ -639,7 +796,7 @@ class Callback:
         task_node_auto_lock_num: int | None = None,
     ):
         """
-        args:
+        Args:
             at_job_start: [
                 # callback when this job is going to run
                 {
@@ -780,7 +937,11 @@ class Callback:
 
 
 class Job(TaskNode):
+    """Job object.
 
+    Attributes:
+        callback (Callback): Callback of the job.
+    """
     def __init__(self, callback: Callback | None = None):
         super().__init__()
         if callback is not None:
@@ -789,17 +950,48 @@ class Job(TaskNode):
 
     @abstractmethod
     async def task(self) -> HandlerCoroutine | None:
+        """The task of the job.
+
+        Every job must have a specific task assigned.
+        This task should not contain time-consuming operations that block the current thread.
+        If it returns a handler object, then that handler object will be automatically called,
+        with this job as its parent.
+        """
         ...
 
     async def _do_at_done(self):
+        """This method is automatically called when the job is completed.
+
+        It executes the callback functions specified by 'at_job_end'.
+        """
         if self._callback is not None:
             await self.commander._callback_handle(callback=self._callback, which="at_job_end", task_node=self)
 
     async def put_job(self, job: Job, parent: TaskNode | None = None, requester: TaskNode | None = None):
+        """Add a job.
+
+        Args:
+            job: The job to be added.
+            parent: The parent of the job, defaulting to None, indicating the parent is this handler.
+            requester:
+                The requester of the put_job request,
+                defaulting to None, indicating the requester is this handler.
+                This parameter may be used when terminating a tasknode.
+        """
         commander = self.commander
         await commander._put_job(job=job, parent=parent or self, requester=requester)
 
     def call_handler(self, handler: HandlerCoroutine, parent: TaskNode | None = None, requester: TaskNode | None = None):
+        """Call a handler.
+
+        Args:
+            handler: The handler to be called.
+            parent: The parent of the job, defaulting to None, indicating the parent is this handler.
+            requester:
+                The requester of the put_job request,
+                defaulting to None, indicating the requester is this handler.
+                This parameter may be used when terminating a tasknode.
+        """
         commander = self.commander
         commander._call_handler(handler=handler, parent=parent or self, requester=requester)
 
@@ -812,6 +1004,12 @@ class Job(TaskNode):
         which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
         functions_info: dict | list[dict],
     ) -> None:
+        """Add callback functions.
+
+        Args:
+            which: Specify the type of the callback functions to be added.
+            functions_info: The dict of the callback functions.
+        """
         if self._callback is None:
             self._callback = Callback()
         when_callback = getattr(self._callback, which)
@@ -822,6 +1020,7 @@ class Job(TaskNode):
         self._callback._task_node = self
 
     def add_callback(self, callback: Callback | list[Callback | None]) -> None:
+        """Add callback."""
         if isinstance(callback, list):
             callback_ = Callback.merge(callback)
         else:
@@ -834,8 +1033,8 @@ class Job(TaskNode):
 
 
 class ComEnd(Job):
-    """
-    A empty Job with None parent.
+    """A empty Job with None parent.
+    
     Put a empty Job to prevent the commander from waiting indefinitely for a job that will never arrive.
     """
     def __init__(self):
@@ -847,6 +1046,7 @@ class ComEnd(Job):
 
 
 class BasicJob(Job):
+    """A simple job that calls a handler."""
     def __init__(self, job_content: Coroutine):
         super().__init__()
         self.job_content = job_content
