@@ -1,9 +1,26 @@
 import asyncio
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable, AsyncGenerator, Literal
 
 
-async def async_dispatcher_tools_call_for_openai(source: AsyncIterator):
-    """dispatch the message to user and tools call"""
+async def async_dispatcher_tools_call_for_openai(
+    source: AsyncIterator,
+    ) -> Callable[[Literal["to_user", "function_call"]], AsyncGenerator]:
+    """Dispatch the message to user and tools call.
+
+    It automatically parses the "to_user" parameter in function calls,
+    removes it from the function's parameter list, and sends it to the 'to_user' generator.
+    The remaining function call parameters are sent to the 'function_call' generator.
+
+    Returns:
+        make_generator (Callable[[Literal["to_user", "function_call"]], AsyncGenerator]):
+            Factory function, you can pass it the name string of the generator
+            to obtain the corresponding generator.
+
+    Example:
+        >>> make_generator_for_roles = await async_dispatcher_tools_call_for_openai(an_async_iterator)  
+        >>> to_user_generator = make_generator_for_roles("to_user")  
+        >>> function_call_generator = make_generator_for_roles("function_call")  
+    """
     to_user_queue = asyncio.Queue()
     function_call_queue = asyncio.Queue()
 

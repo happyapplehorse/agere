@@ -1,17 +1,6 @@
-# Welcome to MkDocs
+# Agere
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+![logo](https://github.com/happyapplehorse/gptui-assets/blob/main/imgs/agere_logo_transparent.png)
 
-## Commands
-
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
-
-## Project layout
-
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+Agere is a lightweight framework for building and driving AI agents or applications based on task flows.
+By defining specific jobs or handlers, Agere can automatically organize and execute complex task flows.

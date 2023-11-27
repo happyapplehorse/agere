@@ -1,3 +1,15 @@
+# This srcipt assumes you have the OPENAI_API_KEY environment variable set to a valid OpenAI APK key.
+# Due to the limitations of the command line interaction environment,
+# this example only provides a demonstration of basic group chat functionalities.
+# For features that allow users to participate in chats in real-time,
+# UI support is needed to separate chat messages from user input.
+# For a more complete implementation of actual group chat functionalities,
+# you can refer to gptui, a GPT conversational TUI project powered by agere.
+"""Attention:
+This script requires you to press Ctrl+C to stop running.
+Please terminate the program promptly to avoid wasting tokens.
+"""
+
 import random
 from typing import Iterable, AsyncIterable
 
@@ -6,11 +18,6 @@ from agere.utils.llm_async_converters import LLMAsyncAdapter
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-# This srcipt assumes you have the OPENAI_API_KEY environment variable set to a valid OpenAI APK key.
-"""Attention:
-This script requires you to press Ctrl+C to stop running.
-Please terminate the program promptly to avoid wasting tokens.
-"""
 
 class Role:
     def __init__(self, name: str, system_message: str):

@@ -12,6 +12,13 @@ class CallbackDict(RequiredCallbackDict, total=False):
 
 
 class LLMAsyncAdapter:
+    """
+    This class converts streaming output (iterable object) from llm into an asynchronous iterable object,
+    and allows for adding callback functions at the start and end of the reception.
+
+    Attributes:
+        received_message (list): The list of received complete chunks.
+    """
     def __init__(
         self,
         at_receiving_start: list[CallbackDict] | None = None,
@@ -25,6 +32,7 @@ class LLMAsyncAdapter:
 
     async def at_receiving_start(self):
         """This method is called at the start of message reception.
+
         For complex callbacks, implementation can be achieved by overwriting this method
         """
         if self._at_receiving_start is None:
@@ -33,6 +41,7 @@ class LLMAsyncAdapter:
 
     async def at_receiving_end(self):
         """This method is called at the end of message reception.
+        
         For complex callbacks, implementation can be achieved by overwriting this method.
         """
         if self._at_receiving_end is None:

@@ -2,6 +2,7 @@ site_name: Agere
 copyright: Copyright (c) 2023 Xueao Chao
 
 repo_url: https://github.com/happyapplehorse/agere
+repo_name: happyapplehorse/agere
 
 theme:
   name: "material"
@@ -54,9 +55,11 @@ extra:
 
 nav:
   - Home: index.md
+  - Tutorial:
+    - Getting started: getting_started.md
   - Guide:
-    - getting_started.md
-  - Tutorial: tutorial.md
+    - framework.md
   - API:
     - api/index.md
-    - api/commander.md
+    - Commander: api/commander.md
+    - Utils: api/utils.md
