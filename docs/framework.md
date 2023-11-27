@@ -1,23 +1,4 @@
-![PyPI - Version](https://img.shields.io/pypi/v/agere)
-![GitHub License](https://img.shields.io/github/license/happyapplehorse/agere)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/python-publish.yml)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/static.yml)
-
-# Agere
-<p align="center">
-  < img src="https://github.com/happyapplehorse/gptui-assets/blob/main/imgs/agere_logo_transparent.png" alt="Logo">
-</p >
-
-Agere is a lightweight framework for building and driving AI agents or applications based on task flows.
-By defining specific jobs or handlers, Agere can automatically organize and execute complex task flows.
-
-# Installation
-Agere has no third-party dependencies.
-```shell
-pip install agere
-```
-
-# How to Use
+# Framework
 
 ## Basic Concepts
 
@@ -54,9 +35,3 @@ For example, if you want to build an application where multiple AI roles partici
 
 This application uses a preemptive chat method, as opposed to a turn-based multi-round dialogue mechanism, to mimic real-life multi-person chat scenarios. By breaking down the complex task into two Jobs and two handlers, the Commander can automatically organize and execute the task. In this way, you only need to focus on what to do next, without needing to plan globally, effectively reducing the difficulty of building complex processes.
 The specific implementation of this process can be referred to in the example code: [openai_group_talk](examples/openai_group_talk.py)。
-
-
-# License
-This project is licensed under the MIT License.
-
-**Note:** This library is migrated from the commander in gptui's kernel.

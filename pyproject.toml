@@ -9,27 +9,27 @@ authors = [
 ]
 description = "The tool is used for building and driving workflows specifically tailored for AI initiatives. It can be used to construct AI agents."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dynamic = ["version"]
 classifiers = [
     'Development Status :: 3 - Alpha',
     'Intended Audience :: Developers',
     'Topic :: Software Development',
-    'License :: OSI Approved :: MIT License',
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Utilities',
     'Programming Language :: Python :: 3',
+    'License :: OSI Approved :: MIT License',
     'Operating System :: OS Independent',
-    'Operating System :: POSIX :: Linux',
-    'Operating System :: MacOS :: MacOS X',
-    'Operating System :: Microsoft :: Windows',
 ]
 keywords = ["agents", "AI"]
 dependencies = []
 
-
 [project.urls]
-"Homepage" = "https://github.com/happyapplehorse/agere"
-"Bug Tracker" = "https://github.com/happyapplehorse/agere/issues"
+Homepage = "https://github.com/happyapplehorse/agere"
+Issues = "https://github.com/happyapplehorse/agere/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "agere.__version__"}

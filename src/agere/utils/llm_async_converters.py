@@ -1,19 +1,38 @@
 import asyncio
+import logging
 from inspect import iscoroutinefunction
 from typing import Iterable
 
+from agere.commander._commander import Params, RequiredCallbackDict
+from agere.commander._null_logger import get_null_logger
+
+
+class CallbackDict(RequiredCallbackDict, total=False):
+    params: Params
+
+
 class LLMAsyncAdapter:
+    """
+    This class converts streaming output (iterable object) from llm into an asynchronous iterable object,
+    and allows for adding callback functions at the start and end of the reception.
+
+    Attributes:
+        received_message (list): The list of received complete chunks.
+    """
     def __init__(
         self,
-        at_receiving_start: list[dict] | None = None,
-        at_receiving_end: list[dict] | None = None
+        at_receiving_start: list[CallbackDict] | None = None,
+        at_receiving_end: list[CallbackDict] | None = None,
+        logger: logging.Logger | None = None,
     ):
         self.received_message = []
         self._at_receiving_start = at_receiving_start
         self._at_receiving_end = at_receiving_end
+        self.logger = logger or get_null_logger()
 
     async def at_receiving_start(self):
         """This method is called at the start of message reception.
+
         For complex callbacks, implementation can be achieved by overwriting this method
         """
         if self._at_receiving_start is None:
@@ -22,13 +41,14 @@ class LLMAsyncAdapter:
 
     async def at_receiving_end(self):
         """This method is called at the end of message reception.
+        
         For complex callbacks, implementation can be achieved by overwriting this method.
         """
         if self._at_receiving_end is None:
             return
         await self._do_callback(self._at_receiving_end)
 
-    async def _do_callback(self, callback_list):
+    async def _do_callback(self, callback_list: list[CallbackDict]):
         for callback in callback_list:
             function = callback["function"]
             params = callback.get("params")
@@ -48,14 +68,15 @@ class LLMAsyncAdapter:
     async def llm_to_async_iterable(
         self,
         response: Iterable,
-        at_receiving_start: list[dict] | None = None,
-        at_receiving_end: list[dict] | None = None
+        at_receiving_start: list[CallbackDict] | None = None,
+        at_receiving_end: list[CallbackDict] | None = None,
     ):
         """translate the response from llm to async iterable"""
         if at_receiving_start is not None:
             self._at_receiving_start = at_receiving_start
         if at_receiving_end is not None:
             self._at_receiving_end = at_receiving_end
+        self.received_message = []
         is_first_time = True
         response_iter = iter(response)
         while True:
