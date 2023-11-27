@@ -36,12 +36,12 @@ PASS_WORD: Final[str] = "I assure all time-consuming tasks are delegated externa
 
 class TaskNode(metaclass=ABCMeta):
     def __init__(self):
-        self._id: int | None = None
+        self._id: int | str | None = None
         self._commander: CommanderAsync | None = None
         self._parent: TaskNode | None | Literal["Null"] = None
         self._children: list = [self]
         self._callback: Callback | None = None
-        self._state: Literal["PENDING", "ACTIVE", "TERMINATED", "COMPLETED"] = "PENDING"
+        self._state: Literal["PENDING", "ACTIVE", "TERMINATED", "EXCEPTION", "COMPLETED"] = "PENDING"
     
     def add_child(self, child: TaskNode) -> None:
         """Add a tasknode as child of this tasknode."""
@@ -59,7 +59,7 @@ class TaskNode(metaclass=ABCMeta):
             return
         if not self._children:
             await self._do_at_done()
-            if self._state != "TERMINATED":
+            if self._state not in ["TERMINATED", "EXCEPTION"]:
                 self._state = "COMPLETED"
             parent = self.parent
             if parent != "Null":
@@ -71,37 +71,72 @@ class TaskNode(metaclass=ABCMeta):
         ...
 
     @property
-    def id(self) -> int | None:
+    def id(self) -> int | str | None:
+        """The ID of this node.
+
+        Each node is automatically assigned an integer ID by the commander after being scheduled.
+        This integer ID is generated from an auto-increment counter.
+        If a node has been manually assigned an ID,
+        the commander will not automatically set an ID for it again.
+        To avoid duplication with IDs set automatically,
+        a string should be used as the ID value when manually setting the ID for a node.
+        """
         if self._id is None:
             raise AttributeNotSetError(obj=self, attr="_id")
         return self._id
 
+    @id.setter
+    def id(self, value: str) -> None:
+        """Set ID for this node.
+
+        To avoid duplication with IDs set automatically,
+        a string should be used as the ID value when manually setting the ID for a node.
+        """
+        self._id = value
+
     @property
     def commander(self) -> CommanderAsync:
+        """The commander object that manages this node."""
         if self._commander is None:
             raise AttributeNotSetError(obj=self, attr="_commander")
         return self._commander
 
     @property
     def parent(self) -> TaskNode | Literal["Null"]:
+        """The parent node of this node."""
         if self._parent is None:
             raise AttributeNotSetError(obj=self, attr="_parent")
         return self._parent
 
     @property
     def children(self) -> list[TaskNode]:
+        """All child nodes of this node."""
         return self._children
 
     @property
     def children_num(self) -> int:
+        """The number of child nodes of this node."""
         return len(self._children)
 
     @property
     def state(self) -> str:
+        """The current state of the node.
+
+        Options:
+            "PENDING": Waiting to start execution.
+            "ACTIVE": In an active state (currently running).
+            "TERMINATED": Has been terminated.
+            "EXCEPTION": Encountered an exception.
+            "COMPLETED": Completed.
+        """
         return self._state
 
     @property
     def ancestor_chain(self) -> list[TaskNode]:
+        """The chain of nodes consisting of all the parent nodes of this node.
+
+        The first is itself, and the last is the top-level node.
+        """
         chain = []
         if self.parent == "Null":
             return [self]
@@ -206,6 +241,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         self._running_lock = threading.Lock()
         self.__exit_event = threading.Event()
         self.__exit_event.set()
+        self._id = next(self._unique_id)
         self.logger = logger or get_null_logger()
 
     @property
@@ -395,7 +431,8 @@ class CommanderAsync(CommanderAsyncInterface[T]):
                 if at_commander_end:
                     self._callbacks_at_commander_end_list.append(callback)
             
-            job._id = next(self._unique_id)
+            if job._id is None:
+                job._id = next(self._unique_id)
             job_task = job.task
             if getattr(job_task, "_tasker_", None) is not True:
                 raise NotTaskerError(job)
@@ -503,6 +540,8 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         parent.add_child(handler)
         if handler._commander is None:
             handler._commander = parent.commander
+        if handler._id is None:
+            handler._id = next(self._unique_id)
         
         handler_callback = handler.callback
         if handler_callback is not None:
@@ -547,14 +586,15 @@ def tasker(password):
         """
         func._tasker_ = True
         @wraps(func)
-        async def wrap_function(self_job):
+        async def wrap_function(self_job: Job):
             try:
                 if iscoroutinefunction(func):
                     result = await func(self_job)
                 else:
                     result = func(self_job)
             except Exception as e:
-                self_job.commander.logger.error(f"Encountered an error in the job task. Error: {e}, job: {self_job}")
+                self_job._state = "EXCEPTION"
+                self_job.commander.logger.error(f"Encountered an exception in the job task. Error: {e}, job: {self_job}")
                 await self_job.commander._callback_handle(callback=self_job._callback, which="at_exception", task_node=self_job)
             else:
                 if result is not None:
@@ -603,7 +643,8 @@ class HandlerCoroutine(TaskNode):
         try:
             result = await coro
         except Exception as e:
-            self.commander.logger.error(f"Encountered an error in the handler. Error: {e}, handler: {self}")
+            self._state = "EXCEPTION"
+            self.commander.logger.error(f"Encountered an exception in the handler. Error: {e}, handler: {self}")
             await self.commander._callback_handle(callback=self._callback, which="at_exception", task_node=self)
         else:
             return result
