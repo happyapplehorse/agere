@@ -1,20 +1,21 @@
-import asyncio
-import pytest
+from agere.commander._commander import (
+    PASS_WORD,
+    CommanderAsync,
+    BasicJob,
+    handler,
+)
 
-from agere.commander._commander import PASS_WORD, CommanderAsync, BasicJob, HandlerCoroutine, tasker, handler
 
-
-@pytest.mark.asyncio
 async def test_commander_async_initialization():
     commander = CommanderAsync()
     assert commander is not None
     assert not commander.running_status
 
+
 @handler(PASS_WORD)
 async def sample_task_for_await(self_handler):
     return "handler result"
 
-@pytest.mark.asyncio
 async def test_handler_coroutine_await():
 
     handler = sample_task_for_await()
@@ -22,6 +23,7 @@ async def test_handler_coroutine_await():
 
     result = await handler
     assert result == "handler result"
+
 
 @handler(PASS_WORD)
 async def sample_task_for_run_auto(self_handler, manipulate):
