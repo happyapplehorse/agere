@@ -31,5 +31,10 @@ dependencies = []
 Homepage = "https://github.com/happyapplehorse/agere"
 Issues = "https://github.com/happyapplehorse/agere/issues"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = "src"
+
 [tool.setuptools.dynamic]
 version = {attr = "agere.__version__"}
