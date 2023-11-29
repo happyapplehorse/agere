@@ -53,6 +53,10 @@ extra:
       link: https://github.com/happyapplehorse
       name: Github
 
+markdown_extensions:
+  - attr_list
+  - md_in_html
+
 nav:
   - Home: index.md
   - Tutorial:
