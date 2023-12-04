@@ -8,7 +8,7 @@ theme:
   name: "material"
   
   icon:
-    logo: material/ansible
+    logo: material/island
   
   palette:
     - media: "(prefers-color-scheme: light)"
