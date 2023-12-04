@@ -1,9 +1,13 @@
 import asyncio
+import logging
 from typing import AsyncIterator, Callable, AsyncGenerator, Literal
+
+from agere.commander._null_logger import get_null_logger
 
 
 async def async_dispatcher_tools_call_for_openai(
     source: AsyncIterator,
+    logger: logging.Logger | None = None,
     ) -> Callable[[Literal["to_user", "function_call"]], AsyncGenerator]:
     """Dispatch the message to user and tools call.
 
@@ -21,6 +25,7 @@ async def async_dispatcher_tools_call_for_openai(
         >>> to_user_generator = make_generator_for_roles("to_user")  
         >>> function_call_generator = make_generator_for_roles("function_call")  
     """
+    logger = logger or get_null_logger()
     to_user_queue = asyncio.Queue()
     function_call_queue = asyncio.Queue()
 
@@ -45,6 +50,8 @@ async def async_dispatcher_tools_call_for_openai(
         async def do_check_to_user_end():
             nonlocal buffer
             nonlocal to_user_content_start
+            nonlocal to_user_content_end
+            nonlocal to_user_end_active
             if to_user_end_active is True:
                 # to_user content finish
                 # Put the last to_user content in user queue
@@ -53,11 +60,23 @@ async def async_dispatcher_tools_call_for_openai(
                 # drop the following ", and possible empty characters
                 buffer = buffer[to_user_content_end + 2 :].lstrip()
             else:
-                # to_user content dose not finish yet
-                # Put the recent to_user content in user queue.
-                await to_user_queue.put(buffer[to_user_content_start + 1 :])
-                # Refresh to_user_content_start
-                to_user_content_start = len(buffer) - 1
+                while to_user_content_start < len(buffer) - 1:
+                    to_user_content_end = buffer.find('"', to_user_content_start + 1)
+                    if to_user_content_end != -1 and buffer[to_user_content_end - 1] != '\\':
+                        to_user_end_active = True
+                        await do_check_to_user_end()
+                        break
+                    elif to_user_content_end != -1:
+                        # The found double quote does not meet the requirements, continue to search for the next one.
+                        # Put the recent to_user content in user queue.
+                        await to_user_queue.put(buffer[to_user_content_start + 1 : to_user_content_end + 1])
+                        to_user_content_start = to_user_content_end
+                    else:
+                        # There is no end marker throughout the entire buffer.
+                        # Put the recent to_user content in user queue.
+                        await to_user_queue.put(buffer[to_user_content_start + 1 :])
+                        to_user_content_start = len(buffer) - 1
+                        break
         
         async for chunk in source:
             chunk_choice = chunk.choices[0]
@@ -90,7 +109,7 @@ async def async_dispatcher_tools_call_for_openai(
                 continue
 
             chunk_tool_call = chunk_tool_calls[0]
-            # get the name of the function called
+            # Get the name of the function called
             # Second chunk when call tools.
             if chunk_tool_call.type == 'function':
                 tool_call_index = chunk_tool_call.index
@@ -100,14 +119,13 @@ async def async_dispatcher_tools_call_for_openai(
                     if to_user_end_active is True: # The content of 'to_user' exists and is complete.
                         # In cases where there is information for the user, messages from different functions are separated by a newline.
                         await to_user_queue.put("\n")
-                    if to_user_end_active == to_user_start_active:
-                        # Exclude the case where the parameter parsing is incomplete.
+                    if to_user_end_active == to_user_start_active: # Exclude the case where the parameter parsing is incomplete.
                         await put_a_function()
                     buffer = ''
                     to_user_start_active = False
                     to_user_end_active = False
                 function_name = chunk_tool_call.function.name
-                tool_call_info += f'{{"tool_call_index": {chunk_tool_call.index}, "tool_call_id": "{chunk_tool_call.id}", "name": "{function_name}", "arguments": '
+                tool_call_info = f'{{"tool_call_index": {chunk_tool_call.index}, "tool_call_id": "{chunk_tool_call.id}", "name": "{function_name}", "arguments": '
                 tool_call_index_now = tool_call_index
                 continue
 
@@ -122,7 +140,7 @@ async def async_dispatcher_tools_call_for_openai(
             if to_user_start_active is True:
                 # In 'to_user' param:
                 to_user_content_end = buffer.find('"', to_user_content_start + 1)
-                if to_user_content_end != -1 and buffer[to_user_content_start - 1] != '\\':
+                if to_user_content_end != -1 and buffer[to_user_content_end - 1] != '\\':
                     to_user_end_active = True
                 await do_check_to_user_end()
                 continue
@@ -130,7 +148,7 @@ async def async_dispatcher_tools_call_for_openai(
             # Before to_user start flag is found.
             to_user_key_start = buffer.find('"to_user":')
             if to_user_key_start == -1:
-                continue # Did not find the "to_user" key, continue to receive the next chunk.
+                continue # Do not find the "to_user" key, continue to receive the next chunk.
             # In 'to_user' param:
             before_to_user_content = buffer[: to_user_key_start]
             to_user_content_start = buffer.find('"', find_to_user_content_start_position or to_user_key_start + 10)
