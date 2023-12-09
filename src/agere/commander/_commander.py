@@ -32,6 +32,7 @@ from ._null_logger import get_null_logger
 
 
 PASS_WORD: Final[str] = "I assure all time-consuming tasks are delegated externally."
+CallbackType = Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"]
 
 
 class TaskNode(metaclass=ABCMeta):
@@ -446,7 +447,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
     async def _callback_handle(
         self,
         callback: Callback | None,
-        which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
+        which: CallbackType,
         task_node: TaskNode | None = None,
     ) -> None:
         if callback is None:
@@ -688,7 +689,7 @@ class HandlerCoroutine(TaskNode):
 
     def add_callback_functions(
         self,
-        which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
+        which: CallbackType,
         functions_info: CallbackDict | list[CallbackDict],
     ) -> None:
         """Add callback functions.
@@ -1049,7 +1050,7 @@ class Job(TaskNode):
 
     def add_callback_functions(
         self,
-        which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
+        which: CallbackType,
         functions_info: dict | list[dict],
     ) -> None:
         """Add callback functions.
