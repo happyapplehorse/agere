@@ -5,7 +5,7 @@
 
 # Agere
 <p align="center">
-  <img src="https://github.com/happyapplehorse/gptui-assets/blob/main/imgs/agere_logo_transparent.png" alt="Logo">
+  <img src="https://github.com/happyapplehorse/happyapplehorse-assets/blob/main/imgs/agere_logo_transparent.png" alt="Logo">
 </p >
 
 Agere is a lightweight framework for building and driving AI agents or applications based on task flows.
