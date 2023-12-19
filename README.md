@@ -1,7 +1,10 @@
 ![GitHub License](https://img.shields.io/github/license/happyapplehorse/agere)
 ![PyPI - Version](https://img.shields.io/pypi/v/agere)
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/static.yml?label=docs)](https://happyapplehorse.github.io/agere/)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/python-publish.yml?label=build)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/mkdocs.yml?logo=materialformkdocs&label=docs)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/python-publish.yml?logo=pypi)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/happyapplehorse/agere/codecov.yml?logo=pytest&label=test)
+[![codecov](https://codecov.io/gh/happyapplehorse/agere/graph/badge.svg?token=01PNCN77SX)](https://codecov.io/gh/happyapplehorse/agere)
+![Static Badge](https://img.shields.io/badge/dependencies-zero-brightgreen)
 
 # Agere
 <p align="center">
