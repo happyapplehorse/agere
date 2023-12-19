@@ -35,7 +35,7 @@ PASS_WORD: Final[str] = "I assure all time-consuming tasks are delegated externa
 CallbackType = Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"]
 
 
-class TaskNode(metaclass=ABCMeta):
+class TaskNode:
     def __init__(self):
         self._id: int | str | None = None
         self._commander: CommanderAsync | None = None
@@ -66,7 +66,6 @@ class TaskNode(metaclass=ABCMeta):
             if parent != "Null":
                 await parent.del_child(self)
 
-    @abstractmethod
     async def _do_at_done(self):
         """This method is automatically called when the tasknode is completed."""
         ...
@@ -177,20 +176,21 @@ class TaskNode(metaclass=ABCMeta):
             for child in node._children:
                 terminate_children(child, visited)
 
+        terminate_children(self)
         self._children.clear()
+
         if self._callback:
             await self.commander._callback_handle(callback=self._callback, which="at_terminate", task_node=self)
+        
         parent = self.parent
         if parent != "Null":
             await parent.del_child(self)
-        
-        terminate_children(self)
 
 
 T = TypeVar('T')
 
 
-class CommanderAsyncInterface(TaskNode, Generic[T]):
+class CommanderAsyncInterface(TaskNode, Generic[T], metaclass=ABCMeta):
     @property
     @abstractmethod
     def running_status(self) -> bool:
@@ -985,7 +985,7 @@ class Callback:
         return Callback().update(callbacks)
 
 
-class Job(TaskNode):
+class Job(TaskNode, metaclass=ABCMeta):
     """Job object.
 
     Attributes:
