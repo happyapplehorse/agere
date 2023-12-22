@@ -1,51 +1,38 @@
+class TaskNodeException(Exception):
+    """Base class for exceptions related to TaskNode."""
+
+
 class CommanderException(Exception):
-    ...
+    """Base class for exceptions related to Commander."""
 
 
-class NoCommanderError(CommanderException):
-    def __init__(self, job):
-        self.job = job
-    
-    def __str__(self):
-        return f"Commander not found in {self.job}."
+class JobException(TaskNodeException):
+    """Base class for exceptions related to Job."""
+
+
+class HandlerException(TaskNodeException):
+    """Base class for exceptions related to Handler."""
+
+
+class NoCommanderError(TaskNodeException):
+    """Raised when the commander is used in a TaskNode but the commander attribute has not been set."""
+
+
+class AttributeNotSetError(TaskNodeException):
+    """Raised when attempting to use an attribute that has not been set."""
 
 
 class CommanderNotRunError(CommanderException):
-    def __init__(self, commander):
-        self.commander = commander
-    
-    def __str__(self):
-        return f"Commander is not running, commander: {self.commander}."
+    """Raised when commander should be running but isn't."""
 
 
 class CommanderAlreadyRunningError(CommanderException):
-    def __init__(self, commander):
-        self.commander = commander
-    
-    def __str__(self):
-        return f"Commander already is running, commander: {self.commander}"
+    """Raised when the commander is found to be running when it should not be."""
 
 
-class NotTaskerError(CommanderException):
-    def __init__(self, job):
-        self.job = job
-    
-    def __str__(self):
-        return f"Task method of {self.job} is not a Tasker."
+class NotTaskerError(JobException):
+    """Raised when a Job's task method is not a Tasker."""
 
 
-class NotHandlerError(CommanderException):
-    def __init__(self, job):
-        self.job = job
-    
-    def __str__(self):
-        return f"Object is not a Handler called in {self.job}."
-
-
-class AttributeNotSetError(CommanderException):
-    def __init__(self, obj, attr):
-        self.obj = obj
-        self.attr = attr
-    
-    def __str__(self):
-        return f"The {self.attr} attribute of {self.obj} has not been set yet."
+class NotHandlerError(HandlerException):
+    """Raised when a non-handler object is called as if it were a handler."""
