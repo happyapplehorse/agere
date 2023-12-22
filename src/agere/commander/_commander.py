@@ -32,9 +32,10 @@ from ._null_logger import get_null_logger
 
 
 PASS_WORD: Final[str] = "I assure all time-consuming tasks are delegated externally."
+CallbackType = Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"]
 
 
-class TaskNode(metaclass=ABCMeta):
+class TaskNode:
     def __init__(self):
         self._id: int | str | None = None
         self._commander: CommanderAsync | None = None
@@ -65,7 +66,6 @@ class TaskNode(metaclass=ABCMeta):
             if parent != "Null":
                 await parent.del_child(self)
 
-    @abstractmethod
     async def _do_at_done(self):
         """This method is automatically called when the tasknode is completed."""
         ...
@@ -82,7 +82,7 @@ class TaskNode(metaclass=ABCMeta):
         a string should be used as the ID value when manually setting the ID for a node.
         """
         if self._id is None:
-            raise AttributeNotSetError(obj=self, attr="_id")
+            raise AttributeNotSetError(f"The _id attribute of {self!r} has not been set yet.")
         return self._id
 
     @id.setter
@@ -98,14 +98,14 @@ class TaskNode(metaclass=ABCMeta):
     def commander(self) -> CommanderAsync:
         """The commander object that manages this node."""
         if self._commander is None:
-            raise AttributeNotSetError(obj=self, attr="_commander")
+            raise AttributeNotSetError(f"The _commander attribute of {self!r} has not been set yet.")
         return self._commander
 
     @property
     def parent(self) -> TaskNode | Literal["Null"]:
         """The parent node of this node."""
         if self._parent is None:
-            raise AttributeNotSetError(obj=self, attr="_parent")
+            raise AttributeNotSetError(f"The _parent attribute of {self!r} has not been set yet.")
         return self._parent
 
     @property
@@ -176,20 +176,21 @@ class TaskNode(metaclass=ABCMeta):
             for child in node._children:
                 terminate_children(child, visited)
 
+        terminate_children(self)
         self._children.clear()
+
         if self._callback:
             await self.commander._callback_handle(callback=self._callback, which="at_terminate", task_node=self)
+        
         parent = self.parent
         if parent != "Null":
             await parent.del_child(self)
-        
-        terminate_children(self)
 
 
 T = TypeVar('T')
 
 
-class CommanderAsyncInterface(TaskNode, Generic[T]):
+class CommanderAsyncInterface(TaskNode, Generic[T], metaclass=ABCMeta):
     @property
     @abstractmethod
     def running_status(self) -> bool:
@@ -281,7 +282,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         """
         with self._running_lock:
             if self.__running is True:
-                raise CommanderAlreadyRunningError("Commander is running.")
+                raise CommanderAlreadyRunningError(f"The commander is already running, commander: {self!r}")
             self.__running = True
             self.__exit_event.clear()
             if new_queue is True:
@@ -435,7 +436,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
                 job._id = next(self._unique_id)
             job_task = job.task
             if getattr(job_task, "_tasker_", None) is not True:
-                raise NotTaskerError(job)
+                raise NotTaskerError(f"Task method of {job!r} is not a Tasker.")
             await job_task()
 
         for callback in self._callbacks_at_commander_end_list:
@@ -446,7 +447,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
     async def _callback_handle(
         self,
         callback: Callback | None,
-        which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
+        which: CallbackType,
         task_node: TaskNode | None = None,
     ) -> None:
         if callback is None:
@@ -517,7 +518,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         """
         event_loop = self._event_loop
         if event_loop is None:
-            raise CommanderNotRunError(self)
+            raise CommanderNotRunError(f"Commander is not running, commander: {self!r}.")
         asyncio.run_coroutine_threadsafe(self._put_job(job), event_loop)
 
     def _call_handler(
@@ -527,7 +528,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         requester: TaskNode | None = None
     ) -> Task | None:
         if getattr(handler, "_handler_", None) is not True:
-            raise NotHandlerError(parent)
+            raise NotHandlerError(f"{handler!r} is not a Handler, parent: {parent!r}, requester: {requester!r}.")
         
         if parent is None:
             parent = self
@@ -563,7 +564,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         """
         event_loop = self._event_loop
         if event_loop is None:
-            raise CommanderNotRunError(self)
+            raise CommanderNotRunError(f"Commander is not running, commander: {self!r}.")
         event_loop.call_soon_threadsafe(self._call_handler, (handler,))
 
 
@@ -688,7 +689,7 @@ class HandlerCoroutine(TaskNode):
 
     def add_callback_functions(
         self,
-        which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
+        which: CallbackType,
         functions_info: CallbackDict | list[CallbackDict],
     ) -> None:
         """Add callback functions.
@@ -740,7 +741,7 @@ def handler(password):
             Remove self from the node's _children, and trigger the down check of this handler task node when it is done.
         """
         if not iscoroutinefunction(coro_func):
-            raise TypeError("Handler function must to be a coroutine function.")
+            raise TypeError("Handler function must be a coroutine function.")
 
         @wraps(coro_func)
         def wrap_function(*args, **kwargs):
@@ -984,7 +985,7 @@ class Callback:
         return Callback().update(callbacks)
 
 
-class Job(TaskNode):
+class Job(TaskNode, metaclass=ABCMeta):
     """Job object.
 
     Attributes:
@@ -1049,7 +1050,7 @@ class Job(TaskNode):
 
     def add_callback_functions(
         self,
-        which: Literal["at_job_start", "at_handler_start", "at_exception", "at_terminate", "at_handler_end", "at_job_end", "at_commander_end"],
+        which: CallbackType,
         functions_info: dict | list[dict],
     ) -> None:
         """Add callback functions.
