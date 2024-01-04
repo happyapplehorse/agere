@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
+import sys
 import threading
 import weakref
 from abc import ABCMeta, abstractmethod
@@ -357,8 +358,8 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             wait: Whether return only after the commander loop has truly finished.
         """
         with self._running_lock:
+            self._return_result = return_result
             if self.__running is False:
-                self._return_result = return_result
                 return
             #self._exit_event.clear()
             self.__running = False
@@ -368,7 +369,6 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             self.put_job_threadsafe(job)
             if wait is True:
                 self.__exit_event.wait()
-            self._return_result = return_result
 
     def wait_for_exit(self) -> None | T:
         """Wait for the commander loop to end.
@@ -720,6 +720,31 @@ class HandlerCoroutine(TaskNode):
         self._callback._task_node = self
 
 
+def _is_first_param_bound(fun) -> bool:
+    """Determines if the first parameter of a given function is bound"""
+    qualname = fun.__qualname__
+
+    if '.' not in qualname:
+        return False
+
+    parts = qualname.split('.')
+    
+    if parts[-2] == '<locals>':  # Nested function
+        return False
+
+    # Is method within class.
+    method_name = parts[-1]
+    class_name = parts[-2]
+    module = sys.modules[fun.__module__]
+    cls = getattr(module, class_name, None)
+    if cls:
+        if isinstance(cls.__dict__.get(method_name), staticmethod):
+            return False
+        else:
+            return True
+    else:
+        assert False
+
 def handler(password):
     """Decorator for handler
 
@@ -746,8 +771,7 @@ def handler(password):
         @wraps(coro_func)
         def wrap_function(*args, **kwargs):
             handler_coroutine = HandlerCoroutine()
-            if '.' in coro_func.__qualname__:
-                # coro_func is a method
+            if _is_first_param_bound(coro_func):
                 coro = coro_func(args[0], handler_coroutine, *args[1:], **kwargs)
                 for arg in args:
                     if isinstance(arg, Callback):
@@ -764,7 +788,6 @@ def handler(password):
                             handler_coroutine._callback.update(value)
                         value._task_node = handler_coroutine
             else:
-                # coro_func is a function
                 coro = coro_func(handler_coroutine, *args, **kwargs)
                 for arg in args:
                     if isinstance(arg, Callback):
