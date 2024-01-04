@@ -137,6 +137,7 @@ def test_commander_async_run_and_exit(job_add, commander):
 
     # Action
     commander.exit(1)
+    run_thread_1.join()
 
     # Assert
     assert manipulate[0] == 1
