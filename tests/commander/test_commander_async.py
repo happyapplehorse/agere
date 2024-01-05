@@ -90,7 +90,7 @@ def test_is_first_param_bound():
     assert _is_first_param_bound(TClass.instance_method)
 
 
-def test_commander_async_run_auto(job_add, commander):
+def test_commander_async_run_auto(job_add, commander: CommanderAsync):
     # Setup
     manipulate = [0]
     job = job_add(manipulate)
@@ -107,7 +107,7 @@ def test_commander_async_run_auto(job_add, commander):
     assert not commander.running_status
 
 
-def test_commander_async_run_and_exit(job_add, commander):
+def test_commander_async_run_and_exit(job_add, commander: CommanderAsync):
     # Setup
     manipulate = [0]
     exit_code = [None]
@@ -137,7 +137,6 @@ def test_commander_async_run_and_exit(job_add, commander):
 
     # Action
     commander.exit(1)
-    run_thread_1.join()
 
     # Assert
     assert manipulate[0] == 1
@@ -160,3 +159,50 @@ def test_commander_async_run_and_exit(job_add, commander):
     assert manipulate[0] == 2
     assert exit_code[0] == 2
     assert not commander.running_status
+
+
+def wait_for_exit(job_add, commander: CommanderAsync):
+    # Setup
+    manipulate = [0]
+    exit_code = 1
+    whether_new_loop = []
+    lock = threading.Lock()
+    
+    class RunThread(threading.Thread):
+        def __init__(self, commander: CommanderAsync, job: Job, whether_new_loop):
+            self.commander = commander
+            self.job = job
+            self.whether_new_loop = whether_new_loop
+            super().__init__()
+
+        def run(self):
+            print("----\n")
+            try:
+                status = self.commander.run_auto(self.job)
+            except Exception as e:
+                print('except', e)
+            with lock:
+                print(status)
+                self.whether_new_loop.append(status)
+    
+    run_thread_1 = RunThread(commander, job_add(manipulate), whether_new_loop)
+    run_thread_2 = RunThread(commander, job_add(manipulate), whether_new_loop)
+
+    # Assert
+    assert not commander.running_status
+    assert manipulate[0] == 0
+    
+    # Action
+    run_thread_1.start()
+    run_thread_2.start()
+    exit_code = commander.wait_for_exit()
+
+    # Assert
+    run_thread_1.join()
+    run_thread_2.join()
+    print(whether_new_loop)
+    assert not commander.running_status
+    assert exit_code is None
+    assert manipulate[0] == 2
+
+

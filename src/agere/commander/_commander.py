@@ -241,8 +241,10 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         self._return_result = None
         self._event_loop: AbstractEventLoop | None = None
         self._running_lock = threading.Lock()
-        self.__exit_event = threading.Event()
-        self.__exit_event.set()
+        self.__loop_exit_event = threading.Event()
+        self.__loop_exit_event.set()
+        self.__thread_exit_event = threading.Event()
+        self.__thread_exit_event.set()
         self._id = next(self._unique_id)
         self.logger = logger or get_null_logger()
 
@@ -285,7 +287,8 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             if self.__running is True:
                 raise CommanderAlreadyRunningError(f"The commander is already running, commander: {self!r}")
             self.__running = True
-            self.__exit_event.clear()
+            self.__loop_exit_event.clear()
+            self.__thread_exit_event.clear()
             if new_queue is True:
                 self.__job_queue = asyncio.Queue()
         self._event_loop = asyncio.new_event_loop()
@@ -298,6 +301,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             self._event_loop.run_until_complete(self._event_loop.shutdown_asyncgens())
             self._event_loop.close()
             asyncio.set_event_loop(None)
+            self.__thread_exit_event.set()
         return self._return_result
 
     def run_auto(self, job: Job | Sequence[Job], auto_exit: bool = True, new_queue: bool = True) -> bool:
@@ -335,7 +339,8 @@ class CommanderAsync(CommanderAsyncInterface[T]):
                         self.put_job_threadsafe(one_job)
                 return False
             self.__running = True
-            self.__exit_event.clear()
+            self.__loop_exit_event.clear()
+            self.__thread_exit_event.clear()
             if new_queue is True:
                 self.__job_queue = asyncio.Queue()
         self._event_loop = asyncio.new_event_loop()
@@ -348,6 +353,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             self._event_loop.run_until_complete(self._event_loop.shutdown_asyncgens())
             self._event_loop.close()
             asyncio.set_event_loop(None)
+            self.__thread_exit_event.set()
         return True
 
     def exit(self, return_result: T | None = None, wait: bool = True) -> None:
@@ -355,36 +361,38 @@ class CommanderAsync(CommanderAsyncInterface[T]):
 
         Args:
             return_result: This value will be returned by self.run()
-            wait: Whether return only after the commander loop has truly finished.
+            wait: Whether return only after the commander loop and thread has truly finished.
         """
         with self._running_lock:
             self._return_result = return_result
             if self.__running is False:
                 return
-            #self._exit_event.clear()
+            #self.__loop_exit_event.clear()
             self.__running = False
             job = ComEnd()
             job._parent = "Null"
             job._commander = self
             self.put_job_threadsafe(job)
             if wait is True:
-                self.__exit_event.wait()
+                self.__loop_exit_event.wait()
+                self.__thread_exit_event.wait()
 
     def wait_for_exit(self) -> None | T:
-        """Wait for the commander loop to end.
+        """Wait for the commander loop and thread to end.
 
-        This will block the current thread until the commander loop ends,
+        This will block the current thread until the commander loop and thread ends,
         and this method returns the value specified by self.exit().        
         """
         # Because this could be a potentially prolonged and blocking wait, using a lock might lead to a deadlock.
         # Thus, we avoid waiting within the lock here.
         # If the following condition is met, it indicates that it is running between
-        # self.__running=True and self.__exit_event.clear() in self.run.
+        # self.__running=True and self.__loop_exit_event.clear() in self.run.
         # We wait for these two statements to complete by waiting for the lock (without consuming CPU).
-        if self.__running and self.__exit_event.is_set():
+        if self.__running and self.__loop_exit_event.is_set():
             with self._running_lock:
                 pass
-        self.__exit_event.wait()
+        self.__loop_exit_event.wait()
+        self.__thread_exit_event.wait()
         return self._return_result
 
     async def _commander_async(self, init_job: Job | Sequence[Job] | None = None, auto_exit: bool = False) -> None:
@@ -420,8 +428,8 @@ class CommanderAsync(CommanderAsyncInterface[T]):
                     finally:
                         self._running_lock.release()
                 else:
-                    # To avoid a deadlock.
-                    pass
+                    if self.__job_queue.empty() and not self._children:
+                        continue
             
             job = await self.__job_queue.get()
 
@@ -442,7 +450,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         for callback in self._callbacks_at_commander_end_list:
             await self._callback_handle(callback=callback, which="at_commander_end")
         self._callbacks_at_commander_end_list = []
-        self.__exit_event.set()
+        self.__loop_exit_event.set()
 
     async def _callback_handle(
         self,
