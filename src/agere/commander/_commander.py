@@ -766,8 +766,14 @@ class HandlerCoroutine(TaskNode):
         """
         if self._callback is None:
             self._callback = Callback()
-        when_callback = getattr(self._callback, which)
-        if functions_info is list:
+        try:
+            when_callback = getattr(self._callback, which)
+        except AttributeError:
+            raise ValueError(
+                "The value of 'which' is not one of the supported callback types; "
+                "it must represent a type of callback."
+            )
+        if isinstance(functions_info, list):
             when_callback.extend(functions_info)
         else:
             when_callback.append(functions_info)
