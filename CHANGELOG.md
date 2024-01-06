@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Prevent the commander from failing to exit automatically due to an inability to acquire the lock
 - Fixed the bug where the exit code is not passed correctly
 - Fixed the functional defect in the threadsafe-related methods
-- Fixed HandlerCoroutine.add_callback_functions error
+- Fixed HandlerCoroutine.add_callback_functions and Job.add_callback_functions error
+- Fixed the issue where the task_node parameter cannot be correctly handle during the initialization of the Callback
 
 ### Changed
 

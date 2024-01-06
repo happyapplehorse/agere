@@ -815,7 +815,7 @@ def _is_first_param_bound(fun) -> bool:
         else:
             return True
     else:
-        assert False
+        assert False, "The class where the handler is located cannot be a nested local class."
 
 def handler(password):
     """Decorator for handler
@@ -1018,6 +1018,14 @@ class Callback:
                     "inject_task_node": bool, whether pass back task node into callback function automatically
                 },
             ]
+            task_node:
+                Set the task_node of the callback.
+                If not None, the task_node_auto_lock_num will be consumed once during the initialization phase.
+                If None, the task_node_auto_lock_num will not be consumed during initialization.
+            task_node_auto_lock_num:
+                Allow the number of times the _task_node can be set. Once this allowance is exhausted,
+                the task_node will be automatically locked and unable to change unless unlocked.
+                If set to None, the auto-lock feature will not be enabled.
         """
         self.at_job_start = at_job_start or []
         self.at_handler_start = at_handler_start or []
@@ -1026,12 +1034,12 @@ class Callback:
         self.at_handler_end = at_handler_end or []
         self.at_job_end = at_job_end or []
         self.at_commander_end = at_commander_end or []
-        if task_node is None:
-            self.__task_node = task_node  # consume task_node_auto_lock_num
-        else:
-            self._task_node = task_node  # do not consume task_node_auto_lock_num
         self.__task_node_auto_lock_num = task_node_auto_lock_num
         self._task_node_lock = False
+        if task_node is None:
+            self.__task_node = task_node  # do not consume task_node_auto_lock_num
+        else:
+            self._task_node = task_node  # consume task_node_auto_lock_num once
 
     @property
     def task_node(self) -> TaskNode | None:
@@ -1156,8 +1164,14 @@ class Job(TaskNode, metaclass=ABCMeta):
         """
         if self._callback is None:
             self._callback = Callback()
-        when_callback = getattr(self._callback, which)
-        if functions_info is list:
+        try:
+            when_callback = getattr(self._callback, which)
+        except AttributeError:
+            raise ValueError(
+                "The value of 'which' is not one of the supported callback types; "
+                "it must represent a type of callback."
+            )
+        if isinstance(functions_info, list):
             when_callback.extend(functions_info)
         else:
             when_callback.append(functions_info)
