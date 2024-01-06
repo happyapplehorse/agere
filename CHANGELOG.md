@@ -17,4 +17,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
-- Both 'exit' and 'wait_for_exit' wait for the commander's thread to finish, not just for the loop to end
+- Both 'CommanderAsync.exit' and 'CommanderAsync.wait_for_exit' wait for the commander's thread to finish, not just for the loop to end
+- CommanderAsync.is_empty return True only when '__job_queue', '_children' and '_threadsafe_waiting_tasks' are all empty now

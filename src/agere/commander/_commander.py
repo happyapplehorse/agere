@@ -256,8 +256,14 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             return self.__running
     
     def is_empty(self) -> bool:
-        """Check if the __job_queue of the commander is empty."""
-        return self.__job_queue.empty() and not self._children
+        """Check if the commander (task status) is empty.
+
+        Return True only when the __job_queue of the commander, its _children and _threadsafe_waiting_tasks
+        are all empty; otherwise, return False.
+        """
+        with self._threadsafe_waiting_tasks_lock:
+            status = self.__job_queue.empty() and not self._children and not self._threadsafe_waiting_tasks
+        return status
 
     def run(self, job: Job | Sequence[Job] | None = None, auto_exit: bool = False, new_queue: bool = True) -> None | T:
         """Start the commander loop.

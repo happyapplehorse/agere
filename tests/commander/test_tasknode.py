@@ -2,6 +2,12 @@ import pytest
 from unittest.mock import Mock, AsyncMock
 
 from agere.commander._commander import TaskNode
+from agere.commander._exceptions import AttributeNotSetError
+
+
+@pytest.fixture
+def tasknode() -> TaskNode:
+    return TaskNode()
 
 
 def test_ancestor_chain():
@@ -22,10 +28,10 @@ def test_ancestor_chain():
     # Assert
     assert tasknode_5.ancestor_chain == [tasknode_5, tasknode_3, tasknode_2, tasknode_1]
     assert tasknode_4.ancestor_chain == [tasknode_4, tasknode_2, tasknode_1]
-    
-async def test_terminate_task_node():
+
+
+async def test_terminate_task_node(tasknode):
     # Setup
-    tasknode = TaskNode()
     tasknode._children.extend([Mock(), Mock()])
     tasknode_parent = Mock()
     tasknode_parent.del_child = AsyncMock()
@@ -48,6 +54,7 @@ async def test_terminate_task_node():
         which="at_terminate",
         task_node=tasknode,
     )
+
 
 async def test_close_task_node():
     # Setup
@@ -86,3 +93,15 @@ async def test_close_task_node():
         task_node=tasknode_2,
     )
 
+
+def test_tasknode_id(tasknode):
+    # Assert
+    with pytest.raises(AttributeNotSetError):
+        _ = tasknode.id
+
+def test_tasknode_set_id(tasknode):
+    # Action
+    tasknode.id = "id"
+
+    # Assert
+    assert tasknode.id == "id"
