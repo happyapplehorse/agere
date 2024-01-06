@@ -2,10 +2,11 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
+import sys
 import threading
 import weakref
 from abc import ABCMeta, abstractmethod
-from asyncio import Task, AbstractEventLoop
+from asyncio import AbstractEventLoop, Task
 from functools import wraps
 from inspect import iscoroutinefunction
 from typing import (
@@ -240,10 +241,14 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         self._return_result = None
         self._event_loop: AbstractEventLoop | None = None
         self._running_lock = threading.Lock()
-        self.__exit_event = threading.Event()
-        self.__exit_event.set()
+        self.__loop_exit_event = threading.Event()
+        self.__loop_exit_event.set()
+        self.__thread_exit_event = threading.Event()
+        self.__thread_exit_event.set()
         self._id = next(self._unique_id)
         self.logger = logger or get_null_logger()
+        self._threadsafe_waiting_tasks = set()
+        self._threadsafe_waiting_tasks_lock = threading.Lock()
 
     @property
     def running_status(self) -> bool:
@@ -251,8 +256,14 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             return self.__running
     
     def is_empty(self) -> bool:
-        """Check if the __job_queue of the commander is empty."""
-        return self.__job_queue.empty() and not self._children
+        """Check if the commander (task status) is empty.
+
+        Return True only when the __job_queue of the commander, its _children and _threadsafe_waiting_tasks
+        are all empty; otherwise, return False.
+        """
+        with self._threadsafe_waiting_tasks_lock:
+            status = self.__job_queue.empty() and not self._children and not self._threadsafe_waiting_tasks
+        return status
 
     def run(self, job: Job | Sequence[Job] | None = None, auto_exit: bool = False, new_queue: bool = True) -> None | T:
         """Start the commander loop.
@@ -283,20 +294,29 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         with self._running_lock:
             if self.__running is True:
                 raise CommanderAlreadyRunningError(f"The commander is already running, commander: {self!r}")
+            # The wait here is to ensure that the (potential) commander thread truly terminates.
+            # This won't result in a deadlock because if waiting actually occurs here, it indicates that
+            # another commander thread is currently terminating and is about to finish, and it won't require
+            # the lock before its completion.
+            self.__thread_exit_event.wait()
             self.__running = True
-            self.__exit_event.clear()
+            self.__loop_exit_event.clear()
+            self.__thread_exit_event.clear()
             if new_queue is True:
                 self.__job_queue = asyncio.Queue()
-        self._event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._event_loop)
+            self._event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._event_loop)
         try:
-            self._event_loop.run_until_complete(self._commander_async(job, auto_exit))
+            self._event_loop.create_task(self._commander_async(job, auto_exit))
+            self._event_loop.run_forever()
         finally:
             for task in asyncio.all_tasks(self._event_loop):
                 task.cancel()
             self._event_loop.run_until_complete(self._event_loop.shutdown_asyncgens())
             self._event_loop.close()
             asyncio.set_event_loop(None)
+            self._event_loop = None
+            self.__thread_exit_event.set()
         return self._return_result
 
     def run_auto(self, job: Job | Sequence[Job], auto_exit: bool = True, new_queue: bool = True) -> bool:
@@ -333,20 +353,29 @@ class CommanderAsync(CommanderAsyncInterface[T]):
                     for one_job in job:
                         self.put_job_threadsafe(one_job)
                 return False
+            # The wait here is to ensure that the (potential) commander thread truly terminates.
+            # This won't result in a deadlock because if waiting actually occurs here, it indicates that
+            # another commander thread is currently terminating and is about to finish, and it won't require
+            # the lock before its completion.
+            self.__thread_exit_event.wait()
             self.__running = True
-            self.__exit_event.clear()
+            self.__loop_exit_event.clear()
+            self.__thread_exit_event.clear()
             if new_queue is True:
                 self.__job_queue = asyncio.Queue()
-        self._event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._event_loop)
+            self._event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._event_loop)
         try:
-            self._event_loop.run_until_complete(self._commander_async(job, auto_exit))
+            self._event_loop.create_task(self._commander_async(job, auto_exit))
+            self._event_loop.run_forever()
         finally:
             for task in asyncio.all_tasks(self._event_loop):
                 task.cancel()
             self._event_loop.run_until_complete(self._event_loop.shutdown_asyncgens())
             self._event_loop.close()
             asyncio.set_event_loop(None)
+            self._event_loop = None
+            self.__thread_exit_event.set()
         return True
 
     def exit(self, return_result: T | None = None, wait: bool = True) -> None:
@@ -354,37 +383,38 @@ class CommanderAsync(CommanderAsyncInterface[T]):
 
         Args:
             return_result: This value will be returned by self.run()
-            wait: Whether return only after the commander loop has truly finished.
+            wait: Whether return only after the commander loop and thread has truly finished.
         """
         with self._running_lock:
+            self._return_result = return_result
             if self.__running is False:
-                self._return_result = return_result
                 return
-            #self._exit_event.clear()
+            #self.__loop_exit_event.clear()
             self.__running = False
             job = ComEnd()
             job._parent = "Null"
             job._commander = self
             self.put_job_threadsafe(job)
             if wait is True:
-                self.__exit_event.wait()
-            self._return_result = return_result
+                self.__loop_exit_event.wait()
+                self.__thread_exit_event.wait()
 
     def wait_for_exit(self) -> None | T:
-        """Wait for the commander loop to end.
+        """Wait for the commander loop and thread to end.
 
-        This will block the current thread until the commander loop ends,
+        This will block the current thread until the commander loop and thread ends,
         and this method returns the value specified by self.exit().        
         """
         # Because this could be a potentially prolonged and blocking wait, using a lock might lead to a deadlock.
         # Thus, we avoid waiting within the lock here.
         # If the following condition is met, it indicates that it is running between
-        # self.__running=True and self.__exit_event.clear() in self.run.
+        # self.__running=True and self.__loop_exit_event.clear() in self.run.
         # We wait for these two statements to complete by waiting for the lock (without consuming CPU).
-        if self.__running and self.__exit_event.is_set():
+        if self.__running and self.__loop_exit_event.is_set():
             with self._running_lock:
                 pass
-        self.__exit_event.wait()
+        self.__loop_exit_event.wait()
+        self.__thread_exit_event.wait()
         return self._return_result
 
     async def _commander_async(self, init_job: Job | Sequence[Job] | None = None, auto_exit: bool = False) -> None:
@@ -412,17 +442,20 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         while self.__running:
             # stop condition
             if auto_exit:
+                await asyncio.sleep(0)
                 if self._running_lock.acquire(blocking=False):
                     try:
-                        if self.__job_queue.empty() and not self._children:
-                            self.__running = False
-                            break
+                        with self._threadsafe_waiting_tasks_lock:
+                            if self.__job_queue.empty() and not self._children and not self._threadsafe_waiting_tasks:
+                                self.__running = False
+                                break
                     finally:
                         self._running_lock.release()
                 else:
-                    # To avoid a deadlock.
-                    pass
-            
+                    with self._threadsafe_waiting_tasks_lock:
+                        if self.__job_queue.empty() and not self._children and not self._threadsafe_waiting_tasks:
+                            continue
+        
             job = await self.__job_queue.get()
 
             callback = getattr(job, "callback", None)
@@ -442,7 +475,11 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         for callback in self._callbacks_at_commander_end_list:
             await self._callback_handle(callback=callback, which="at_commander_end")
         self._callbacks_at_commander_end_list = []
-        self.__exit_event.set()
+        # To ensure the order of setting __loop_exit_event and __thread_exit_event.
+        # __loop_exit_event.set() must be executed first, followed by _event_loop.stop()
+        self.__loop_exit_event.set()
+        assert self._event_loop is not None  # For type check
+        self._event_loop.stop()
 
     async def _callback_handle(
         self,
@@ -519,7 +556,14 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         event_loop = self._event_loop
         if event_loop is None:
             raise CommanderNotRunError(f"Commander is not running, commander: {self!r}.")
-        asyncio.run_coroutine_threadsafe(self._put_job(job), event_loop)
+        future = asyncio.run_coroutine_threadsafe(self._put_job(job), event_loop)
+        with self._threadsafe_waiting_tasks_lock:
+            self._threadsafe_waiting_tasks.add(future)
+
+        def wrap_discard(obj):
+            with self._threadsafe_waiting_tasks_lock:
+                self._threadsafe_waiting_tasks.discard(obj)
+        future.add_done_callback(wrap_discard)
 
     def _call_handler(
         self,
@@ -549,14 +593,34 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             if handler_callback.at_commander_end:
                 handler.commander._callbacks_at_commander_end_list.append(handler_callback)
         
-        if not handler.commander is self:
+        if handler.commander is not self:
             handler.commander.call_handler_threadsafe(handler)
             return
         
         task = asyncio.create_task(handler.wrap_coroutine())
         return task
 
-    def call_handler_threadsafe(self, handler: HandlerCoroutine):
+
+    class CallHandlerThreadsafeWrapper:
+        def __init__(self, func, *args, **kwargs):
+            self.func = func
+            self.args = args
+            self.kwargs = kwargs
+
+        def execute(self):
+            self.func(*self.args, **self.kwargs)
+
+
+    def _wrap_call_handler(
+        self,
+        call_handler_threadsafe_wrapper: CallHandlerThreadsafeWrapper
+    ) -> Task | None:
+        task = call_handler_threadsafe_wrapper.execute()
+        with self._threadsafe_waiting_tasks_lock:
+            self._threadsafe_waiting_tasks.discard(call_handler_threadsafe_wrapper)
+        return task
+
+    def call_handler_threadsafe(self, handler: HandlerCoroutine) -> None:
         """Schedule a handler to be called in this commander in a thread-safe manner.
 
         Raises:
@@ -565,8 +629,10 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         event_loop = self._event_loop
         if event_loop is None:
             raise CommanderNotRunError(f"Commander is not running, commander: {self!r}.")
-        event_loop.call_soon_threadsafe(self._call_handler, (handler,))
-
+        call_handler_threadsafe_wrapper = self.CallHandlerThreadsafeWrapper(self._call_handler, handler)
+        with self._threadsafe_waiting_tasks_lock:
+            self._threadsafe_waiting_tasks.add(call_handler_threadsafe_wrapper)
+        event_loop.call_soon_threadsafe(self._wrap_call_handler, call_handler_threadsafe_wrapper)
 
 def tasker(password):
     """Decorator for tasker
@@ -700,8 +766,14 @@ class HandlerCoroutine(TaskNode):
         """
         if self._callback is None:
             self._callback = Callback()
-        when_callback = getattr(self._callback, which)
-        if functions_info is list:
+        try:
+            when_callback = getattr(self._callback, which)
+        except AttributeError:
+            raise ValueError(
+                "The value of 'which' is not one of the supported callback types; "
+                "it must represent a type of callback."
+            )
+        if isinstance(functions_info, list):
             when_callback.extend(functions_info)
         else:
             when_callback.append(functions_info)
@@ -719,6 +791,31 @@ class HandlerCoroutine(TaskNode):
             self._callback.update(callback_)
         self._callback._task_node = self
 
+
+def _is_first_param_bound(fun) -> bool:
+    """Determines if the first parameter of a given function is bound"""
+    qualname = fun.__qualname__
+
+    if '.' not in qualname:
+        return False
+
+    parts = qualname.split('.')
+    
+    if parts[-2] == '<locals>':  # Nested function
+        return False
+
+    # Is method within class.
+    method_name = parts[-1]
+    class_name = parts[-2]
+    module = sys.modules[fun.__module__]
+    cls = getattr(module, class_name, None)
+    if cls:
+        if isinstance(cls.__dict__.get(method_name), staticmethod):
+            return False
+        else:
+            return True
+    else:
+        assert False, "The class where the handler is located cannot be a nested local class."
 
 def handler(password):
     """Decorator for handler
@@ -746,8 +843,7 @@ def handler(password):
         @wraps(coro_func)
         def wrap_function(*args, **kwargs):
             handler_coroutine = HandlerCoroutine()
-            if '.' in coro_func.__qualname__:
-                # coro_func is a method
+            if _is_first_param_bound(coro_func):
                 coro = coro_func(args[0], handler_coroutine, *args[1:], **kwargs)
                 for arg in args:
                     if isinstance(arg, Callback):
@@ -764,7 +860,6 @@ def handler(password):
                             handler_coroutine._callback.update(value)
                         value._task_node = handler_coroutine
             else:
-                # coro_func is a function
                 coro = coro_func(handler_coroutine, *args, **kwargs)
                 for arg in args:
                     if isinstance(arg, Callback):
@@ -923,6 +1018,14 @@ class Callback:
                     "inject_task_node": bool, whether pass back task node into callback function automatically
                 },
             ]
+            task_node:
+                Set the task_node of the callback.
+                If not None, the task_node_auto_lock_num will be consumed once during the initialization phase.
+                If None, the task_node_auto_lock_num will not be consumed during initialization.
+            task_node_auto_lock_num:
+                Allow the number of times the _task_node can be set. Once this allowance is exhausted,
+                the task_node will be automatically locked and unable to change unless unlocked.
+                If set to None, the auto-lock feature will not be enabled.
         """
         self.at_job_start = at_job_start or []
         self.at_handler_start = at_handler_start or []
@@ -931,12 +1034,12 @@ class Callback:
         self.at_handler_end = at_handler_end or []
         self.at_job_end = at_job_end or []
         self.at_commander_end = at_commander_end or []
-        if task_node is None:
-            self.__task_node = task_node  # consume task_node_auto_lock_num
-        else:
-            self._task_node = task_node  # do not consume task_node_auto_lock_num
         self.__task_node_auto_lock_num = task_node_auto_lock_num
         self._task_node_lock = False
+        if task_node is None:
+            self.__task_node = task_node  # do not consume task_node_auto_lock_num
+        else:
+            self._task_node = task_node  # consume task_node_auto_lock_num once
 
     @property
     def task_node(self) -> TaskNode | None:
@@ -1061,8 +1164,14 @@ class Job(TaskNode, metaclass=ABCMeta):
         """
         if self._callback is None:
             self._callback = Callback()
-        when_callback = getattr(self._callback, which)
-        if functions_info is list:
+        try:
+            when_callback = getattr(self._callback, which)
+        except AttributeError:
+            raise ValueError(
+                "The value of 'which' is not one of the supported callback types; "
+                "it must represent a type of callback."
+            )
+        if isinstance(functions_info, list):
             when_callback.extend(functions_info)
         else:
             when_callback.append(functions_info)
