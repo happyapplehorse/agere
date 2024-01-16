@@ -638,6 +638,11 @@ def tasker(password):
     """Decorator for tasker
 
     Tasks decorated with this decorator should not contain time-consuming tasks that block the thread.
+
+    Note:
+        Note that until the task is completed, it will hinder the execution of new jobs in the queue.
+        Therefore, if there are time-consuming tasks in the task, it is advisable to use a handler to
+        execute the task to avoid blocking the job queue.
     """
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
@@ -820,7 +825,8 @@ def _is_first_param_bound(fun) -> bool:
 def handler(password):
     """Decorator for handler
 
-    Handlers decorated with this decorator must be a coroutine function.
+    Handlers decorated with this decorator must be a coroutine function,
+    and should not contain time-consuming tasks that block the thread.
     The handler can be either a method of a class or a regular function.
     """
     assert password == PASS_WORD, ("The password is incorrect, "
