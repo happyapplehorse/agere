@@ -89,6 +89,6 @@ example code: [openai_group_talk](examples/openai_group_talk.py).
 
 
 # License
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](./LICENSE).
 
 **Note:** This library is migrated from the commander in gptui's kernel.
