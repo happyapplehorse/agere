@@ -667,12 +667,14 @@ def tasker(password):
             except Exception as e:
                 self_job._state = "EXCEPTION"
                 self_job.commander.logger.error(f"Encountered an exception in the job task. Error: {e}, job: {self_job}")
+                self_job.exception = e
                 await self_job.commander._callback_handle(callback=self_job._callback, which="at_exception", task_node=self_job)
             else:
                 if result is not None:
                     assert isinstance(result, HandlerCoroutine)
                     if isinstance(result, HandlerCoroutine):
                         self_job.call_handler(handler=result)
+                self_job.result = result
                 return result
             finally:
                 await self_job.del_child(self_job)
@@ -696,6 +698,7 @@ class HandlerCoroutine(TaskNode):
         self.coro = None
         self._callback: Callback | None = None
         self.result = None
+        self.exception: Exception | None = None
 
     async def _do_at_done(self):
         """This method is automatically called when the handler is completed.
@@ -718,6 +721,7 @@ class HandlerCoroutine(TaskNode):
         except Exception as e:
             self._state = "EXCEPTION"
             self.commander.logger.error(f"Encountered an exception in the handler. Error: {e}, handler: {self}")
+            self.exception = e
             await self.commander._callback_handle(callback=self._callback, which="at_exception", task_node=self)
         else:
             self.result = result
@@ -1104,6 +1108,8 @@ class Job(TaskNode, metaclass=ABCMeta):
         if callback is not None:
             callback._task_node = self
         self._callback = callback
+        self.result = None
+        self.exception: Exception | None = None
 
     @abstractmethod
     async def task(self) -> HandlerCoroutine | None:
