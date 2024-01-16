@@ -22,6 +22,9 @@ pip install agere
 
 # How to Use
 
+## Architecture Overview
+![agere_architecture](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_architecture.png)
+
 ## Basic Concepts
 
 ### TaskNode

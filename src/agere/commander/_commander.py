@@ -820,11 +820,8 @@ def _is_first_param_bound(fun) -> bool:
 def handler(password):
     """Decorator for handler
 
-    Handlers decorated with this decorator must be a coroutine function,
-    and should not contain time-consuming tasks that block the thread.
+    Handlers decorated with this decorator must be a coroutine function.
     The handler can be either a method of a class or a regular function.
-    If it is a regular function, it cannot be a nested function,
-    as it would then be recognized as a method within a class.
     """
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
