@@ -1,7 +1,8 @@
 import pytest
+import threading
 from unittest.mock import Mock
 
-from agere.commander import CallbackDict, Callback, Job, tasker, PASS_WORD
+from agere.commander import CallbackDict, Callback, Job, CommanderAsync, tasker, PASS_WORD
 
 
 @pytest.fixture
@@ -11,6 +12,14 @@ def job():
         async def task(self):
             pass
     return JobExample()
+
+
+@pytest.fixture
+def commander():
+    _commander = CommanderAsync()
+    yield _commander
+    _commander.exit()
+
 
 def test_add_callback_functions(job: Job):
     # Setup
@@ -39,3 +48,27 @@ def test_add_callback(job: Job):
     # Assert
     assert job.callback is not None
     assert job.callback.at_job_start == [function_info, function_info, function_info]
+
+
+def test_exception_callback(commander: CommanderAsync):
+    # Setup
+    class JobTest(Job):
+        @tasker(PASS_WORD)
+        async def task(self):
+            raise ValueError()
+    callback_function = Mock()
+    callback = Callback(at_exception=[{"function": callback_function}])
+    job = JobTest(callback)
+
+    # Action
+    threading.Thread(target=commander.run).start()
+    while not commander.running_status:
+        pass
+    commander.put_job_threadsafe(job)
+    while not commander.is_empty():
+        pass
+    commander.exit()
+
+    # Assert
+    assert callback_function.called
+    assert job.state == "EXCEPTION"

@@ -641,8 +641,8 @@ def tasker(password):
 
     Note:
         Note that until the task is completed, it will hinder the execution of new jobs in the queue.
-        Therefore, if there are time-consuming tasks in the task, it is advisable to use a handler to
-        execute the task to avoid blocking the job queue.
+        Therefore, if there are time-consuming tasks in the tasker (job's task), it is advisable to
+        use a handler to execute the task to avoid blocking the job queue.
     """
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
