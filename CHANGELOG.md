@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Added a result attribute to the handler object (HandlerCoroutine)
+
 ## [0.1.3] - 2023-01-05
 
 ### Fixed

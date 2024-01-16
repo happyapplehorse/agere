@@ -695,6 +695,7 @@ class HandlerCoroutine(TaskNode):
         self._handler_ = True
         self.coro = None
         self._callback: Callback | None = None
+        self.result = None
 
     async def _do_at_done(self):
         """This method is automatically called when the handler is completed.
@@ -719,6 +720,7 @@ class HandlerCoroutine(TaskNode):
             self.commander.logger.error(f"Encountered an exception in the handler. Error: {e}, handler: {self}")
             await self.commander._callback_handle(callback=self._callback, which="at_exception", task_node=self)
         else:
+            self.result = result
             return result
         finally:
             await self.del_child(self)
