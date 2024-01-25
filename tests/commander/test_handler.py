@@ -168,3 +168,23 @@ def test_handler_result(commander: CommanderAsync):
     # Assert
     assert test_handler.state == "COMPLETED"
     assert test_handler.result == "result"
+
+
+def test_exit_commander(commander: CommanderAsync):
+    # Setup
+    @handler(PASS_WORD)
+    async def handle_exit(self_handler):
+        await self_handler.exit_commander(return_result="exit_code")
+    exit_handler = handle_exit()
+
+    # Action
+    threading.Thread(target=commander.run).start()
+    while not commander.running_status:
+        pass
+    commander.call_handler_threadsafe(exit_handler)
+    while commander.running_status:
+        pass
+
+    # Assert
+    assert commander.running_status is False
+    assert exit_handler.state == "COMPLETED"

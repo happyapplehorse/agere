@@ -72,3 +72,24 @@ def test_exception_callback(commander: CommanderAsync):
     # Assert
     assert callback_function.called
     assert job.state == "EXCEPTION"
+
+
+def test_exit_commander(commander: CommanderAsync):
+    # Setup
+    class ExitJob(Job):
+        @tasker(PASS_WORD)
+        async def task(self):
+            await self.exit_commander(return_result="exit_code")
+    exit_job = ExitJob()
+
+    # Action
+    threading.Thread(target=commander.run).start()
+    while not commander.running_status:
+        pass
+    commander.put_job_threadsafe(exit_job)
+    while commander.running_status:
+        pass
+
+    # Assert
+    assert commander.running_status is False
+    assert exit_job.state == "COMPLETED"

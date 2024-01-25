@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Added a result attribute to the handler (HandlerCoroutine) and Job object
 - When an exception is encountered, add the exception to the exception attribute of the corresponding handler or Job
+- Added exit_commander method for Job and handler, it can be used to exit commander from within
 
 ## [0.1.3] - 2023-01-05
 
