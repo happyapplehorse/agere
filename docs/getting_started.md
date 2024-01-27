@@ -313,6 +313,6 @@ The operational flow of this agent is as shown in the following diagram.
 
 The complete example code is:
 
-``` title="openai_chat_with_tools_within_loop.py"
---8<-- "docs/examples/openai_chat_with_tools_within_loop.py"
+```python title="openai_chat_with_tools_within_loop.py"
+--8<-- "examples/openai_chat_with_tools_within_loop.py"
 ```

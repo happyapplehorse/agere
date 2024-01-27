@@ -7,27 +7,27 @@
 
 ## Basic Concepts
 
-### TaskNode
+### [TaskNode](https://happyapplehorse.github.io/agere/guide/tasknode/)
 Includes Commander, Job, and handler. Each TaskNode has one parent and 0-n children.
 These nodes form a tree structure, where each node determines its own task completion
 based on the status of all its child nodes.
 
-### Commander
+### [Commander](https://happyapplehorse.github.io/agere/guide/commander/)
 Commander is responsible for organizing and scheduling task flows, managing an asynchronous Job queue.
 It is the top-level TaskNode.
 
-### Job
+### [Job](https://happyapplehorse.github.io/agere/guide/job/)
 Job is a class, it is automatically scheduled by the Commander and managed in an asynchronous queue,
 ensuring sequentiality. Each Job has a task method, which wraps the actual task of the Job.
 Jobs can submit new Jobs or call handlers. You can think of it as submitting tasks to a superior.
 
-### handler
+### [handler](https://happyapplehorse.github.io/agere/guide/handler/)
 Handler is a method or function. Called directly by the caller without queue waiting,
 but it is still a part of the TaskNode system.
 A handler can submit new Jobs or call other handlers.
 You can think of it as delegating tasks to subordinates.
 
-### Callback
+### [Callback](https://happyapplehorse.github.io/agere/guide/callback/)
 Callbacks can be added at various stages of a task, such as: task start, task completion,
 encountering exceptions, task termination, Commander ending, etc.
 
