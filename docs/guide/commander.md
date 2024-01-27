@@ -3,10 +3,10 @@ managed by a commander loop. For thread safety, there is only one commander loop
 to add tasks outside of the thread, use thread-safe methods like `put_job_threadsafe` or `call_handler_threadsafe`.
 You can also use these methods to coordinate among multiple commanders, but this is usually unnecessary.
 
-!!! note
+!!! note ""
+    When instantiating a commander, you can set your logger through the `logger` parameter.
 
-When instantiating a commander, you can set your logger through the `logger` parameter.
-
+### Run a commander
 
 On launching a commander, you can set the initial Job, which can be a single Job or a sequence of Jobs (list,
 tuple, etc.). The commander will immediately start executing these Jobs after running. The `CommanderAsync.run`
@@ -15,9 +15,8 @@ value specified by `return_result` when using the `CommanderAsync.exit` method o
 Job and handler.
 
 !!! note
-
-Once a commander is launched, it immediately runs in a commander loop. This means that `CommanderAsync.run` will
-block the current thread until the commander exits.
+    Once a commander is launched, it immediately runs in a commander loop. This means that `CommanderAsync.run` will
+    block the current thread until the commander exits.
 
 
 Attempting to launch a commander that is already running will raise a `CommanderAlreadyRunningError`, and submitting
@@ -43,6 +42,8 @@ You can use the `running_status` property to check whether the commander is runn
 returns whether the commander is empty; it returns True when there are no running or pending jobs and handlers in the commander,
 otherwise False.
 
+
+### Exit commander
 
 To manually end the commander, you can use the `exit` method. It takes two parameters: `return_result` and `wait`. Through the
 `return_result` parameter, you can specify the return value for the run method. When `wait` is set to `True`, the method will
