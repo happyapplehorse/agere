@@ -56,6 +56,13 @@ extra:
 markdown_extensions:
   - attr_list
   - md_in_html
+  - pymdownx.hightlight:
+    anchor_linenums: true
+    line_spans: __span
+    pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
 
 nav:
   - Home: index.md

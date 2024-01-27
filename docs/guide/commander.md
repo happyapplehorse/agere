@@ -3,7 +3,7 @@ managed by a commander loop. For thread safety, there is only one commander loop
 to add tasks outside of the thread, use thread-safe methods like `put_job_threadsafe` or `call_handler_threadsafe`.
 You can also use these methods to coordinate among multiple commanders, but this is usually unnecessary.
 
-Note:
+!!! note
 When instantiating a commander, you can set your logger through the `logger` parameter.
 
 
@@ -13,7 +13,7 @@ method can have a return value. By default, it returns `None` when the commander
 value specified by `return_result` when using the `CommanderAsync.exit` method or the `exit_commander` method of
 Job and handler.
 
-Note:
+!!! note
 Once a commander is launched, it immediately runs in a commander loop. This means that `CommanderAsync.run` will
 block the current thread until the commander exits.
 

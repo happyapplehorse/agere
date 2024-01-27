@@ -22,6 +22,9 @@ pip install agere
 
 # How to Use
 
+[Getting started](https://happyapplehorse.github.io/agere/getting_started/)
+[Guide](https://happyapplehorse.github.io/agere/guide/framework/)
+
 ## Architecture Overview
 ![agere_architecture](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_architecture.png)
 
