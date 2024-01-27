@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2024-01-27
+
 ### Added
 
 - Added a result attribute to the handler (HandlerCoroutine) and Job object

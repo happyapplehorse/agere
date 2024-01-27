@@ -12,8 +12,9 @@ Firstly, of course, we need to send a message to GPT and get a reply.
 
 So let's define our first Job, like this:
 
-```python hl_lines="9-13"
+```python hl_lines="1 4 8 10-14"
 from agere.commander import PASS_WORD, Job, tasker
+
 
 class ChatJob(Job):
     def __init__(self, context: list[ChatCompletionMessageParam]):
@@ -101,10 +102,11 @@ messages in a streaming manner.
 In this handler, we use tools provided by Agere to parse the information sent to the user and the tool invocation information,
 and send the parsed results to the respective processing functions for handling.
 
-```python hl_lines="22-23"
+```python hl_lines="1 14 23-24"
 from agere.commander import PASS_WORD, handler
 from agere.utils.dispatcher import async_dispatcher_tools_call_for_openai
 from agere.utils.llm_async_converters import LLMAsyncAdapter
+
 
 class ResponseHandler:
     """A handler to handle response from LLM"""
@@ -140,7 +142,7 @@ For messages calling tools, we hand them over to `function_call_handler` for pro
 
 `user_handler` and `function_call_handler` are both processing GPT's reply messages. We can put them under one class.
 
-```python hl_lines="71"
+```python hl_lines="8-9 29-30 71"
 class OpenaiHandler:
     """A handler for processing OpenAI responses"""
 
@@ -233,7 +235,7 @@ be completed. Therefore, when both lines are complete, their parent node `ChatJo
 next round of dialogue when `ChatJob` is completed. The method is to add a callback to `ChatJob` that executes upon completion.
 In this callback function, we initiate a new round of `ChatJob` tasks, like this:
 
-```python hl_lines="10-16 18-25"
+```python hl_lines="10-16 19-26"
 class ChatJob(Job):
     def __init__(self, context: list[ChatCompletionMessageParam]):
         self.context = context
@@ -276,7 +278,7 @@ Now, we have completed every step of building this dialogue agent. Let's create 
 
 Create a commander like this and hand over the first Job to it:
 
-```python hl_lines="5 13"
+```python hl_lines="1 5 12-13"
 from agere.commander import CommanderAsync
 
 
@@ -312,5 +314,5 @@ The operational flow of this agent is as shown in the following diagram.
 The complete example code is:
 
 ``` title="openai_chat_with_tools_within_loop.py"
---8<-- "../examples/openai_chat_with_tools_within_loop.py"
+--8<-- "docs/examples/openai_chat_with_tools_within_loop.py"
 ```

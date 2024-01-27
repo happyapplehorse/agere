@@ -4,6 +4,7 @@ to add tasks outside of the thread, use thread-safe methods like `put_job_thread
 You can also use these methods to coordinate among multiple commanders, but this is usually unnecessary.
 
 !!! note
+
 When instantiating a commander, you can set your logger through the `logger` parameter.
 
 
@@ -14,6 +15,7 @@ value specified by `return_result` when using the `CommanderAsync.exit` method o
 Job and handler.
 
 !!! note
+
 Once a commander is launched, it immediately runs in a commander loop. This means that `CommanderAsync.run` will
 block the current thread until the commander exits.
 
