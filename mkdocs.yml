@@ -56,13 +56,28 @@ extra:
 markdown_extensions:
   - attr_list
   - md_in_html
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
 
 nav:
   - Home: index.md
   - Tutorial:
+    - Introduction: introduction.md
     - Getting started: getting_started.md
   - Guide:
-    - framework.md
+    - guide/framework.md
+    - TaskNode: guide/tasknode.md
+    - Commander: guide/commander.md
+    - Job: guide/job.md
+    - handler: guide/handler.md
+    - callbacks: guide/callback.md
   - API:
     - api/index.md
     - Commander: api/commander.md

@@ -1,5 +1,10 @@
 # Framework
 
+<figure markdown>
+  ![flowchart](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_architecture.png)
+  <figcaption>The architecture overview of agere</figcaption>
+</figure>
+
 ## Basic Concepts
 
 ### TaskNode

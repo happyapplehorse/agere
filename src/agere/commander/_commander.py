@@ -378,6 +378,22 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             self.__thread_exit_event.set()
         return True
 
+    async def _exit_from_within(self, return_result: T | None = None) -> None:
+        """Exit the commander loop from within the commander thread.
+        
+        Args:
+            return_result: This value will be returned by self.run()
+        """
+        with self._running_lock:
+            self._return_result = return_result
+            if self.__running is False:
+                return
+            self.__running = False
+            job = ComEnd()
+            job._parent = "Null"
+            job._commander = self
+            await self._put_job(job)
+
     def exit(self, return_result: T | None = None, wait: bool = True) -> None:
         """Exit the commander loop.
 
@@ -468,7 +484,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             if job._id is None:
                 job._id = next(self._unique_id)
             job_task = job.task
-            if getattr(job_task, "_tasker_", None) is not True:
+            if getattr(job_task, "__tasker__", None) is not True:
                 raise NotTaskerError(f"Task method of {job!r} is not a Tasker.")
             await job_task()
 
@@ -571,7 +587,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         parent: TaskNode | None = None,
         requester: TaskNode | None = None
     ) -> Task | None:
-        if getattr(handler, "_handler_", None) is not True:
+        if getattr(handler, "__handler__", None) is not True:
             raise NotHandlerError(f"{handler!r} is not a Handler, parent: {parent!r}, requester: {requester!r}.")
         
         if parent is None:
@@ -656,7 +672,7 @@ def tasker(password):
             Remove it self from the job when it is done automatically.
         "self_job" refers to the job instance.
         """
-        func._tasker_ = True
+        func.__tasker__ = True
         @wraps(func)
         async def wrap_function(self_job: Job):
             try:
@@ -667,12 +683,14 @@ def tasker(password):
             except Exception as e:
                 self_job._state = "EXCEPTION"
                 self_job.commander.logger.error(f"Encountered an exception in the job task. Error: {e}, job: {self_job}")
+                self_job.exception = e
                 await self_job.commander._callback_handle(callback=self_job._callback, which="at_exception", task_node=self_job)
             else:
                 if result is not None:
                     assert isinstance(result, HandlerCoroutine)
                     if isinstance(result, HandlerCoroutine):
                         self_job.call_handler(handler=result)
+                self_job.result = result
                 return result
             finally:
                 await self_job.del_child(self_job)
@@ -692,9 +710,11 @@ class HandlerCoroutine(TaskNode):
     """
     def __init__(self):
         super().__init__()
-        self._handler_ = True
+        self.__handler__ = True
         self.coro = None
         self._callback: Callback | None = None
+        self.result = None
+        self.exception: Exception | None = None
 
     async def _do_at_done(self):
         """This method is automatically called when the handler is completed.
@@ -717,8 +737,10 @@ class HandlerCoroutine(TaskNode):
         except Exception as e:
             self._state = "EXCEPTION"
             self.commander.logger.error(f"Encountered an exception in the handler. Error: {e}, handler: {self}")
+            self.exception = e
             await self.commander._callback_handle(callback=self._callback, which="at_exception", task_node=self)
         else:
+            self.result = result
             return result
         finally:
             await self.del_child(self)
@@ -795,6 +817,9 @@ class HandlerCoroutine(TaskNode):
         else:
             self._callback.update(callback_)
         self._callback._task_node = self
+
+    async def exit_commander(self, return_result=None):
+        await self.commander._exit_from_within(return_result=return_result)
 
 
 def _is_first_param_bound(fun) -> bool:
@@ -1102,6 +1127,8 @@ class Job(TaskNode, metaclass=ABCMeta):
         if callback is not None:
             callback._task_node = self
         self._callback = callback
+        self.result = None
+        self.exception: Exception | None = None
 
     @abstractmethod
     async def task(self) -> HandlerCoroutine | None:
@@ -1157,7 +1184,7 @@ class Job(TaskNode, metaclass=ABCMeta):
     def add_callback_functions(
         self,
         which: CallbackType,
-        functions_info: dict | list[dict],
+        functions_info: CallbackDict | list[CallbackDict],
     ) -> None:
         """Add callback functions.
 
@@ -1191,6 +1218,9 @@ class Job(TaskNode, metaclass=ABCMeta):
         else:
             self._callback.update(callback_)
         self._callback._task_node = self
+
+    async def exit_commander(self, return_result=None):
+        await self.commander._exit_from_within(return_result=return_result)
 
 
 class ComEnd(Job):

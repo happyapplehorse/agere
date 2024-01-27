@@ -144,3 +144,47 @@ def test_handler_decorator(commander: CommanderAsync):
     assert kwargs_values.count(handler_in_class) == 2
     assert kwargs_values.count(a_nested_handler) == 2
     assert callback_function.call_count == 4
+
+
+def test_handler_result(commander: CommanderAsync):
+    # Setup
+    @handler(PASS_WORD)
+    async def handler_with_result(self_handler):
+        return "result"
+    test_handler = handler_with_result()
+
+    # Assert
+    assert test_handler.result is None
+
+    # Action
+    threading.Thread(target=commander.run).start()
+    while not commander.running_status:
+        pass
+    commander.call_handler_threadsafe(test_handler)
+    while not commander.is_empty():
+        pass
+    commander.exit()
+
+    # Assert
+    assert test_handler.state == "COMPLETED"
+    assert test_handler.result == "result"
+
+
+def test_exit_commander(commander: CommanderAsync):
+    # Setup
+    @handler(PASS_WORD)
+    async def handle_exit(self_handler):
+        await self_handler.exit_commander(return_result="exit_code")
+    exit_handler = handle_exit()
+
+    # Action
+    threading.Thread(target=commander.run).start()
+    while not commander.running_status:
+        pass
+    commander.call_handler_threadsafe(exit_handler)
+    while commander.running_status:
+        pass
+
+    # Assert
+    assert commander.running_status is False
+    assert exit_handler.state == "COMPLETED"

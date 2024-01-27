@@ -22,6 +22,9 @@ pip install agere
 
 # How to Use
 
+[Getting started](https://happyapplehorse.github.io/agere/getting_started/)  
+[Guide](https://happyapplehorse.github.io/agere/guide/framework/)
+
 ## Architecture Overview
 ![agere_architecture](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_architecture.png)
 
@@ -89,6 +92,6 @@ example code: [openai_group_talk](examples/openai_group_talk.py).
 
 
 # License
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](./LICENSE).
 
 **Note:** This library is migrated from the commander in gptui's kernel.
