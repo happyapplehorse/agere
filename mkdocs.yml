@@ -60,9 +60,15 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Tutorial:
+    - Introduction: introduction.md
     - Getting started: getting_started.md
   - Guide:
-    - framework.md
+    - guide/framework.md
+    - TaskNode: guide/tasknode.md
+    - Commander: guide/commander.md
+    - Job: guide/job.md
+    - handler: guide/handler.md
+    - callbacks: guide/callback.md
   - API:
     - api/index.md
     - Commander: api/commander.md
