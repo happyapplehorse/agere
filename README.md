@@ -26,7 +26,8 @@ pip install agere
 [Guide](https://happyapplehorse.github.io/agere/guide/framework/)
 
 ## Agere Workflow Demonstration Example
-[Agere workflow demonstration animation](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_getting_started_animation.gif)
+![Agere workflow demonstration animation](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_getting_started_animation.gif)
+
 Above is a simple demonstration animation of a conversational agent's workflow that can call upon tools,
 briefly illustrating the principles of agere. For a detailed tutorial on it, please see [Getting started](https://happyapplehorse.github.io/agere/getting_started/).
 
