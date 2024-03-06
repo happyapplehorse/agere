@@ -8,7 +8,7 @@
 
 # Agere
 <p align="center">
-  < img src="https://github.com/happyapplehorse/happyapplehorse-assets/blob/main/imgs/agere_logo_transparent.png" alt="Logo">
+  <img src="https://github.com/happyapplehorse/happyapplehorse-assets/blob/main/imgs/agere_logo_transparent.png" alt="Logo">
 </p >
 
 Agere is a lightweight framework for building agents, with no third-party dependencies. Its features are universality and complete customizability.
@@ -47,6 +47,7 @@ pip install agere
 ```
 
 # How to Use
+Define Jobs and/or handlers **➔** Create a commander to run them
 
 [Getting started](https://happyapplehorse.github.io/agere/getting_started/)  
 [Guide](https://happyapplehorse.github.io/agere/guide/framework/)
