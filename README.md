@@ -50,8 +50,8 @@ pip install agere
 Define Jobs and/or handlers **➔** Create a commander to run them
 
 [Getting started](https://happyapplehorse.github.io/agere/getting_started/)  
-[Guide](https://happyapplehorse.github.io/agere/guide/framework/)
-🎬[Tutorial-zh](https://www.bilibili.com/video/BV1q6421c71z)
+[Guide](https://happyapplehorse.github.io/agere/guide/framework/) 
+🎬[Tutorial-zh](https://www.bilibili.com/video/BV1q6421c71z) 
 
 ## Agere Workflow Demonstration Example
 ![Agere workflow demonstration animation](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_getting_started_animation.gif)
