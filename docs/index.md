@@ -22,9 +22,10 @@ tracks the relationships and running states of tasks. Within these nodes, you ca
 upon encountering errors, or when being terminated, among others.
 
 In constructing workflows, Agere possesses the following features:
-- **Multitasking**: Agere enables multiple tasks to run in parallel. 
-- **Strategic Timing**: Task states at different moments can be controlled through callbacks. 
-- **Branching Out**: Different states of a node can be linked, for example, connecting edges to a node's start, end, or termination states. 
+
+- **Multitasking**: Agere enables multiple tasks to run in parallel.
+- **Strategic Timing**: Task states at different moments can be controlled through callbacks.
+- **Branching Out**: Different states of a node can be linked, for example, connecting edges to a node's start, end, or termination states.
 - **Tailor-made**: The passing of parameters between nodes is more flexible, with each node being able to customize parameter transmission.
 
 Agere emphasizes universality, operating independently of any tools, specific interfaces, or forms, and is not coupled with any tool. This allows it to invoke any

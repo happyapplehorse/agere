@@ -54,6 +54,7 @@ in the subsequent iteration.)
   parse_stream_response, where multiple parse_stream_responses start executing concurrently.
 - **parse_stream_response** (handler): Responsible for actually collecting and processing reply information.
   There are two scenarios:
+
   - The role has nothing to say, no need to process.
   - The role has something to say, then checks with GroupTalkManager whether someone is currently speaking.
     If someone is speaking, it denies the role's request and informs them who is speaking.

@@ -15,7 +15,7 @@ Agere is a lightweight framework for building agents, with no third-party depend
 It simplifies the process of building agents with complex logic by breaking down a complicated workflow into a series of independent, small steps,
 which also facilitates future expansion or modification of its functionalities.
 
-> Agere is the Latin etymology for "agent," frequently translated as "to act" or "to do," with the implication of "driving" and "propelling something forward."
+> Agere is the Latin etymology for "agent", frequently translated as "to act" or "to do", with the implication of "driving" and "propelling something forward".
 
 # About
 Agere utilizes a model of 'node-edge' to construct workflows. 
@@ -51,6 +51,7 @@ Define Jobs and/or handlers **➔** Create a commander to run them
 
 [Getting started](https://happyapplehorse.github.io/agere/getting_started/)  
 [Guide](https://happyapplehorse.github.io/agere/guide/framework/)
+🎬[Tutorial-zh](https://www.bilibili.com/video/BV1q6421c71z)
 
 ## Agere Workflow Demonstration Example
 ![Agere workflow demonstration animation](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_getting_started_animation.gif)
