@@ -153,8 +153,8 @@ class Context(Generic[ContextPiece]):
         self._bead_content[which].extend(beads)
         self._bead_length[which].extend([self.token_counter(piece) for piece in beads])
 
-    def bead_update(self, new_beads: list[ContextPiece], which: Literal["start", "flowing", "end"]) -> None:
-        """Rewrite the contents of a bead.
+    def bead_overwrite(self, new_beads: list[ContextPiece], which: Literal["start", "flowing", "end"]) -> None:
+        """Overwrite the contents of a bead.
         
         Args:
             new_beads: The new bead contents.
@@ -164,6 +164,18 @@ class Context(Generic[ContextPiece]):
             self.validate_piece_type(bead)
         self._bead_content[which] = new_beads
         self._bead_length[which] = [self.token_counter(piece) for piece in new_beads]
+
+    def bead_update(self, bead: ContextPiece, which: Literal["start", "flowing", "end"], index: int = -1) -> None:
+        """Update the specified piece of the designated bead.
+        
+        Args:
+            bead: The new bead content to update.
+            which: Specify the bead type.
+            index: Specify the index of the piece to be updated. Default to -1.
+        """
+        self.validate_piece_type(bead)
+        self._bead_content[which][index] = bead
+        self._bead_length[which][index] = self.token_counter(bead)
 
     @property
     def bead_length(self) -> BeadInfo:
