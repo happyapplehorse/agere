@@ -4,13 +4,8 @@ from collections.abc import Callable, Coroutine
 from typing import Any, AsyncIterator, AsyncGenerator, Literal
 
 from ._custom_tool_prompt import CUSTOM_TOOL_MANUAL_TEMPLATE
-from .._tool_base import ToolModelInterface, ToolMetadata
+from .._tool_base import ToolModelInterface, ToolMetadata, ParseResponseError
 from ..prompt_template import render_prompt
-from .._exceptions import AgereUtilsError
-
-
-class ParseResponseError(AgereUtilsError):
-    """Raised when parsing response encounters an error."""
 
 
 class CustomToolModel(ToolModelInterface):

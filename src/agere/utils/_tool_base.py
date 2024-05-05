@@ -3,6 +3,27 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, AsyncGenerator, Literal
 
+from ._exceptions import AgereUtilsError
+
+
+class ParseResponseError(AgereUtilsError):
+    """Raised when parsing response encounters an error."""
+
+
+class ToolKit:
+    def __init__(self):
+        self.description: str = ""
+        self.tools: list[Callable] = []
+
+    def __iter__(self):
+        return iter(self.tools)
+
+    def add_tools(self, tools: list[Callable]) -> None:
+        self.tools.extend(tools)
+
+    def set_description(self, description: str) -> None:
+        self.description = description
+
 
 @dataclass
 class ToolMetadata:
@@ -10,6 +31,7 @@ class ToolMetadata:
     description: str
     parameters: list[dict]
     linked_tool: Callable
+    tool_kit: ToolKit | None
 
 
 class ToolModelInterface(metaclass=ABCMeta):

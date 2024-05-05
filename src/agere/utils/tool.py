@@ -1,10 +1,10 @@
 from collections.abc import Callable
-from typing import Literal, Any, AsyncGenerator
+from typing import Literal, Any, AsyncGenerator, AsyncIterator
 
-from tool_models._custom_tool_model import CustomToolModel
 from ._tool_base import (
     CustomToolModelInterface,
     ProvidedToolModelInterface,
+    ToolKit,
     ToolsManagerInterface,
     ToolModelInterface,
     ToolMetadata,
@@ -16,21 +16,6 @@ class ToolError(AgereUtilsError):
     """Raised when encountering an error related to the tool."""
 
 
-class ToolKit:
-    def __init__(self):
-        self.description: str = ""
-        self.tools: list[Callable] = []
-
-    def __iter__(self):
-        return iter(self.tools)
-
-    def add_tools(self, tools: list[Callable]) -> None:
-        self.tools.extend(tools)
-
-    def set_description(self, description: str) -> None:
-        self.description = description
-    
-
 def tool(description: str):
     """Decorator for a tool."""
 
@@ -39,6 +24,8 @@ def tool(description: str):
         func.__tool_description__ = description
         if not hasattr(func, "__tool_parameters__"):
             func.__tool_parameters__ = []
+        if not hasattr(func, "__tool_kit__"):
+            func.__tool_kit__ = None
         return func
     
     return decorator
@@ -50,12 +37,11 @@ def tool_kit(tool_kit_name: str, tool_kit_description: str | None = None):
     """
     
     def decorator(func):
-        func.__tool_kit__ = tool_kit_name
-
         global_name_space = globals()
         if tool_kit_name not in global_name_space:
             global_name_space[tool_kit_name] = ToolKit()
         tool_kit = global_name_space[tool_kit_name]
+        func.__tool_kit__ = tool_kit
 
         if tool_kit_description is not None:
             tool_kit.description = tool_kit_description
@@ -130,18 +116,31 @@ class ToolsManager(ToolsManagerInterface):
     def tool_model(self, value: ToolModelInterface):
         self._tool_model = value
 
-    def add_tool(self, tool: Callable, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def add_tool(self, tool: Callable | ToolKit, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
         self._validate_tool(tool)
-        if tool_type == "PERMANENT":
-            self._permanent_tools[tool.__name__] = self.create_tool_metadata(tool)
-        if tool_type == "TEMPORARY":
-            self._temporary_tools[tool.__name__] = self.create_tool_metadata(tool)
+        if isinstance(tool, ToolKit):
+            tools = tool.tools
+        else:
+            tools = [tool]
+        for one_tool in tools:
+            if tool_type == "PERMANENT":
+                self._permanent_tools[one_tool.__name__] = self.create_tool_metadata(one_tool)
+            if tool_type == "TEMPORARY":
+                self._temporary_tools[one_tool.__name__] = self.create_tool_metadata(one_tool)
     
-    def add_tools(self, tools: list[Callable], tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def add_tools(
+        self,
+        tools: list[Callable | ToolKit],
+        tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY",
+    ) -> None:
         for tool in tools:
             self.add_tool(tool, tool_type=tool_type)
     
-    def remove_tool(self, tool: Callable | str, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def remove_tool(
+        self,
+        tool: Callable | str | ToolKit,
+        tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY",
+    ) -> None:
         if isinstance(tool, str):
             if tool_type == "PERMANENT":
                 self._permanent_tools.pop(tool, None)
@@ -149,12 +148,21 @@ class ToolsManager(ToolsManagerInterface):
                 self._temporary_tools.pop(tool, None)
             return
         self._validate_tool(tool)
-        if tool_type == "PERMANENT":
-            self._permanent_tools.pop(tool.__name__, None)
-        if tool_type == "TEMPORARY":
-            self._temporary_tools.pop(tool.__name__, None)
+        if isinstance(tool, ToolKit):
+            tools = tool.tools
+        else:
+            tools = [tool]
+        for one_tool in tools:
+            if tool_type == "PERMANENT":
+                self._permanent_tools.pop(one_tool.__name__, None)
+            if tool_type == "TEMPORARY":
+                self._temporary_tools.pop(one_tool.__name__, None)
     
-    def remove_tools(self, tools: list[Callable | str], tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def remove_tools(
+        self,
+        tools: list[Callable | str | ToolKit],
+        tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY",
+    ) -> None:
         for tool in tools:
             self.remove_tool(tool, tool_type=tool_type)
     
@@ -164,21 +172,31 @@ class ToolsManager(ToolsManagerInterface):
         if tool_type == "TEMPORARY":
             self._temporary_tools = {}
     
-    def register_tool(self, tool: Callable) -> None:
+    def register_tool(self, tool: Callable | ToolKit) -> None:
         self._validate_tool(tool)
-        self._registered_tools[tool.__name__] = self.create_tool_metadata(tool)
+        if isinstance(tool, ToolKit):
+            tools = tool.tools
+        else:
+            tools = [tool]
+        for one_tool in tools:
+            self._registered_tools[one_tool.__name__] = self.create_tool_metadata(one_tool)
     
-    def register_tools(self, tools: list[Callable]) -> None:
+    def register_tools(self, tools: list[Callable | ToolKit]) -> None:
         for tool in tools:
-            self.remove_tool(tool)
+            self.register_tool(tool)
     
-    def unregister_tools(self, tools: list[Callable | str]) -> None:
+    def unregister_tools(self, tools: list[Callable | str | ToolKit]) -> None:
         for tool in tools:
             if isinstance(tool, str):
                 self._registered_tools.pop(tool, None)
                 return
             self._validate_tool(tool)
-            self._registered_tools.pop(tool.__name__, None)
+            if isinstance(tool, ToolKit):
+                tools_list = tool.tools
+            else:
+                tools_list = [tool]
+            for one_tool in tools_list:
+                self._registered_tools.pop(one_tool.__name__, None)
 
     def clear_registered_tools(self) -> None:
         self._registered_tools = {}
@@ -202,13 +220,14 @@ class ToolsManager(ToolsManagerInterface):
             description = tool.__tool_description__,
             parameters = tool.__tool_parameters__,
             linked_tool = tool,
+            tool_kit = tool.__tool_kit__,
         )
         return tool_metadata
     
     def get_tools_metadata(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> list[ToolMetadata]:
         tool_names = set()
         by_types = ["PERMANENT", "TEMPORARY"] if by_types == "ALL" else by_types
@@ -220,24 +239,30 @@ class ToolsManager(ToolsManagerInterface):
             tool_names.update(by_types)
         return self.get_tools_metadata_by_names(list(tool_names))
 
-    def get_tools_metadata_by_names(self, names: list[str]) -> list[ToolMetadata]:
+    def get_tools_metadata_by_names(self, names: list[str | ToolKit]) -> list[ToolMetadata]:
         result = []
         for name in names:
-            if name in self._registered_tools:
-                result.append(self._registered_tools[name])
-                continue
-            if name in self._temporary_tools:
-                result.append(self._temporary_tools[name])
-                continue
-            if name in self._permanent_tools:
-                result.append(self._permanent_tools[name])
-                continue
+            if isinstance(name, ToolKit):
+                tools = name.tools
+                names_list = [tool.name for tool in tools]
+            else:
+                names_list = [name]
+            for one_name in names_list:
+                if one_name in self._registered_tools:
+                    result.append(self._registered_tools[one_name])
+                    continue
+                if one_name in self._temporary_tools:
+                    result.append(self._temporary_tools[one_name])
+                    continue
+                if one_name in self._permanent_tools:
+                    result.append(self._permanent_tools[one_name])
+                    continue
         return result
 
     def get_tools_manual(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> Any:
         tools = self.get_tools_metadata(by_types=by_types, by_names=by_names)
         return self.tool_model.get_tools_manual(tools=tools)
@@ -254,12 +279,22 @@ class ToolsManager(ToolsManagerInterface):
             return linked_tool.linked_tool
         raise ValueError(f"There is no corresponding tool for '{tool_name}'.")
 
-    def wrap_tools_to_bead(self, tools: list[ToolMetadata | Callable]) -> list:
+    def wrap_tools_to_bead(self, tools: list[ToolMetadata | Callable | ToolKit]) -> list:
         assert isinstance(self.tool_model, CustomToolModelInterface), (
             "The method 'wrap_tools_to_bead' should only be used when utilizing "
             "a CustomToolModelInterface type of tool model."
         )
-        tools_metadata_list = [tool if isinstance(tool, ToolMetadata) else self.create_tool_metadata(tool) for tool in tools]
+        tools_metadata_list = []
+        for tool in tools:
+            if isinstance(tool, ToolMetadata):
+                tools_metadata_list.append(tool)
+            if isinstance(tool, ToolKit):
+                for one_tool in tool.tools:
+                    tools_metadata_list.append(self.create_tool_metadata(one_tool))
+            if isinstance(tool, Callable):
+                tools_metadata_list.append(self.create_tool_metadata(tool))
+            else:
+                assert False
         description = self.tool_model.get_tools_manual(tools_metadata_list)
         tool_bead = self.tool_model.tool_manual_bead_maker(description)
         return [tool_bead]
@@ -267,7 +302,7 @@ class ToolsManager(ToolsManagerInterface):
     def tools_manual_token_num(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> int:
         assert isinstance(self.tool_model, ProvidedToolModelInterface), (
             "The method 'tools_manual_token_num' should only be used when utilizing "
@@ -276,10 +311,15 @@ class ToolsManager(ToolsManagerInterface):
         tools_metadata = self.get_tools_metadata(by_types=by_types, by_names=by_names)
         return self.tool_model.tool_manual_token_counter(tools_metadata)
 
-    def parse_response(self, response) -> Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]:
+    def parse_response(
+        self,
+        response: AsyncIterator
+    ) -> Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]:
         return self.tool_model.parse_response(response)
     
-    def _validate_tool(self, tool: Callable) -> bool:
-        if getattr(tool, "__tool__", None) is not True:
-            raise ToolError(f"The '{tool}' is not a defined tool.")
-        return True
+    def _validate_tool(self, tool: Callable | ToolKit) -> bool:
+        if getattr(tool, "__tool__", None) is True:
+            return True
+        if isinstance(tool, ToolKit):
+            return True
+        raise ToolError(f"The '{tool}' is not a defined tool.")
