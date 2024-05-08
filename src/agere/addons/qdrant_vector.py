@@ -23,6 +23,7 @@ except ImportError:
 else:
     _FASTEMBED_INSTALLED = True
 
+from ._text_splitter_base import TextSplitterInterface
 from ..commander._null_logger import get_null_logger
 
 
@@ -47,18 +48,17 @@ def _import_qdrant_client() -> None:
         )
 
 
-class QdrantVector:
+class AsyncQdrantVector:
 
     def __init__(
         self,
         position: str,
         position_type: Literal["memory", "disk", "server", "cloud"],
         api_key: str | None = None,
-        vector_size: int | None = None,
+        text_splitter: TextSplitterInterface | None = None,
         logger: Logger | None = None,
     ):
         _import_qdrant_client()
-        self._default_vector_size = vector_size
         self.logger = logger or get_null_logger()
         if position_type == "memory":
             self.async_qdrant_client = AsyncQdrantClient(location=":memory:")
@@ -71,6 +71,7 @@ class QdrantVector:
                 self.async_qdrant_client = AsyncQdrantClient(url=position)
         elif position_type == "cloud":
             self.async_qdrant_client = AsyncQdrantClient(url=position, api_key=api_key)
+        self.text_splitter = text_splitter
 
     def set_embedding_model(self, embedding_model_name: str) -> None:
         _import_fastembed()
@@ -79,9 +80,14 @@ class QdrantVector:
     @property
     def default_vector_size(self) -> int:
         _import_fastembed()
-        return self._default_vector_size or self._get_fastembed_model_params(
+        return self._get_fastembed_model_params(
             model_name=self.async_qdrant_client.embedding_model_name
         )[0]
+
+    def split(self, text: str) -> Iterable[str]:
+        if self.text_splitter is None:
+            return [text]
+        return self.text_splitter.split(text)
 
     def _get_fastembed_model_params(self, model_name: str) -> tuple[int, models.Distance]:
         _import_fastembed()
@@ -272,10 +278,18 @@ class QdrantVector:
                 **next(metadata_)
             } for _ in documents
         )
+
+        texts_list = []
+        metadata_list = []
+        for doc, meta in zip(documents, updated_metadata):
+            texts = list(self.split(doc))
+            texts_list.extend(texts)
+            metadata_list.extend([meta] * len(texts))
+
         return await self.async_qdrant_client.add(
             collection_name=collection_name,
-            documents=documents,
-            metadata=updated_metadata,
+            documents=texts_list,
+            metadata=metadata_list,
             ids=ids,
             batch_size=batch_size,
             parallel=parallel,
