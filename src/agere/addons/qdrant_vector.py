@@ -301,9 +301,11 @@ class AsyncQdrantVector:
         collection_name: str,
         query_text: str,
         query_filter: Filter | None = None,
-        limit: int = 10,
+        limit: int = 5,
+        score_threshold : float | None = None,
+        return_text: bool = True,
         **kwargs,
-    ) -> list[QueryResponse]:
+    ) -> list[QueryResponse] | list[str]:
         """
         Search for documents in a collection.
         This method automatically embeds the query text using the specified embedding model.
@@ -318,29 +320,41 @@ class AsyncQdrantVector:
                 Exclude vectors which doesn't fit given conditions.
                 If `None` - search among all vectors
             limit: How many results return
+            score_threshold:
+                Return only results that exceed this score.
+                If it is None, no score filtering is applied. Default to None.
+            return_text: Only return document text if True.
             **kwargs: Additional search parameters. See `qdrant_client.models.SearchRequest` for details.
 
         Returns:
-            List[types.ScoredPoint]: List of scored points.
+            list[types.ScoredPoint] | list[str]: List of scored points.
 
         """
         _import_fastembed()
-        return await self.async_qdrant_client.query(
+        result = await self.async_qdrant_client.query(
             collection_name=collection_name,
             query_text=query_text,
             query_filter=query_filter,
             limit=limit,
             **kwargs,
         )
+        if score_threshold:
+            result = [point for point in result if point.score >= score_threshold]
+        if return_text:
+            return [point.document for point in result]
+        else:
+            return result
 
     async def query_batch(
         self,
         collection_name: str,
         query_texts: list[str],
         query_filter: Filter | None = None,
-        limit: int = 10,
+        limit: int = 5,
+        score_threshold : float | None = None,
+        return_text: bool = True,
         **kwargs,
-    ) -> list[list[QueryResponse]]:
+    ) -> list[list[QueryResponse]] | list[list[str]]:
         """
         Search for documents in a collection with batched query.
         This method automatically embeds the query text using the specified embedding model.
@@ -355,20 +369,30 @@ class AsyncQdrantVector:
                 If `None` - search among all vectors
                 This filter will be applied to all search requests.
             limit: How many results return
+            score_threshold:
+                Return only results that exceed this score.
+                If it is None, no score filtering is applied. Default to None.
+            return_text: Only return document text if True.
             **kwargs: Additional search parameters. See `qdrant_client.models.SearchRequest` for details.
 
         Returns:
-            List[List[QueryResponse]]: List of lists of responses for each query text.
+            list[list[QueryResponse]] | list[list[str]]: List of lists of responses for each query text.
 
         """
         _import_fastembed()
-        return await self.async_qdrant_client.query_batch(
+        result = await self.async_qdrant_client.query_batch(
             collection_name=collection_name,
             query_texts=query_texts,
             query_filter=query_filter,
             limit=limit,
             **kwargs,
         )
+        if score_threshold:
+            result = [[point for point in inner_list if point.score >= score_threshold] for inner_list in result]
+        if return_text:
+            return [[point.document for point in inner_list] for inner_list in result]
+        else:
+            return result
 
     async def delete(self, collection_name: str, filter: Filter) -> None:
         await self.async_qdrant_client.delete(

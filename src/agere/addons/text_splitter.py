@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class SemanticTextSplitter(TextSplitterInterface):
-    def __init__(self, max_sentences: int, semantic: bool = True, semantic_threshold: float = 0.95):
+    def __init__(self, max_sentences: int, semantic: bool = True, semantic_threshold: float = 0.9):
         _import_fastembed()
         from fastembed import TextEmbedding
         self.embedding_model = TextEmbedding()
