@@ -14,8 +14,12 @@ Exceptions:
     PromptTemplateError: Custom exception for handling template errors.
 
 Functions:
-    render_prompt(prompt_template: str, **variables) -> str: Renders a template with variables.
-    is_prompt_fully_filled(prompt: str) -> bool: Checks if a template has unfilled placeholders.
+    render_prompt(prompt_template: str, **variables) -> str:
+        Renders a template with variables.
+    is_prompt_fully_filled(prompt: str) -> bool:
+        Checks if a template has unfilled placeholders.
+    find_unfilled_variables(prompt_template: str) -> list[str]:
+        Finds and returns the list of unfilled variable names in a template string.
 """
 
 
@@ -38,7 +42,12 @@ class PromptTemplate:
     Example of a template: "Hello, {{ name }}!"
 
     Attributes:
-        prompt_template (str): The current state of the template string, initially set with placeholders.
+        prompt_template (str):
+            The current state of the template string, initially set with placeholders.
+        prompt (str):
+            Returns the fully filled template if all placeholders have been replaced, otherwise raises PromptTemplateError.
+        unfilled_variables (list[str]): 
+            Returns the list of unfilled variable names.
 
     Methods:
         load_template(prompt_template: str) -> PromptTemplate:
@@ -101,7 +110,7 @@ class PromptTemplate:
     @property
     def prompt(self) -> str:
         """
-        Returns the fully filled template if all placeholders have been replaced, otherwise raises an error.
+        Returns the fully filled template if all placeholders have been replaced, otherwise raises an PromptTemplateError.
 
         Returns:
             str: The fully filled template string.
@@ -112,6 +121,15 @@ class PromptTemplate:
         if not self.is_fully_filled():
             raise PromptTemplateError("The prompt template is not fully filled.")
         return self.prompt_template
+
+    @property
+    def unfilled_variables(self) -> list[str]:
+        """Returns the list of unfilled variable names.
+
+        Returns:
+            list: The list of unfilled variable names.
+        """
+        return find_unfilled_variables(self.prompt_template)
 
     def is_fully_filled(self) -> bool:
         """
@@ -166,10 +184,21 @@ def is_prompt_fully_filled(prompt: str) -> bool:
     Returns:
         bool: True if no unfilled placeholders are found, False otherwise.
     """
-    pattern = re.compile(r"\{\{\s*\w+\s*\}\}")
-    unreplaced_variables = pattern.findall(prompt)
-    
-    if unreplaced_variables:
+    if find_unfilled_variables(prompt):
         return False
-    else:
-        return True
+    return True
+
+def find_unfilled_variables(prompt_template: str) -> list[str]:
+    """
+    Finds and returns the list of unfilled variable names in a template string.
+
+    Args:
+        prompt_template (str): The template string to check.
+
+    Returns:
+        list: The list of unfilled variable names.
+    """
+    pattern = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+    unfilled_variables = pattern.findall(prompt_template)
+    
+    return unfilled_variables
