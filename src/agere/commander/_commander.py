@@ -13,7 +13,7 @@ from collections.abc import (
     Iterable,
     Sequence,
 )
-from functools import wraps, update_wrapper
+from functools import wraps
 from inspect import iscoroutinefunction
 from typing import (
     Any,
@@ -163,7 +163,7 @@ class TaskNode:
         """
         self._children.clear()
         if self._callback:
-            await self.commander._callback_handle(callback=self._callback, which="at_terminate", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_terminate", task_node=self)
         parent = self.parent
         self._state = "TERMINATED"
         if parent != "Null":
@@ -187,7 +187,7 @@ class TaskNode:
         self._children.clear()
 
         if self._callback:
-            await self.commander._callback_handle(callback=self._callback, which="at_terminate", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_terminate", task_node=self)
         
         parent = self.parent
         if parent != "Null":
@@ -482,7 +482,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
 
             callback = getattr(job, "callback", None)
             if callback is not None:
-                await self._callback_handle(callback=callback, which="at_job_start", task_node=job)
+                await self._handle_callback(callback=callback, which="at_job_start", task_node=job)
                 at_commander_end = callback.at_commander_end
                 if at_commander_end:
                     self._callbacks_at_commander_end_list.append(callback)
@@ -495,7 +495,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             await job_task()
 
         for callback in self._callbacks_at_commander_end_list:
-            await self._callback_handle(callback=callback, which="at_commander_end")
+            await self._handle_callback(callback=callback, which="at_commander_end")
         self._callbacks_at_commander_end_list = []
         # To ensure the order of setting __loop_exit_event and __thread_exit_event.
         # __loop_exit_event.set() must be executed first, followed by _event_loop.stop()
@@ -503,7 +503,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         assert self._event_loop is not None  # For type check
         self._event_loop.stop()
 
-    async def _callback_handle(
+    async def _handle_callback(
         self,
         callback: Callback | None,
         which: CallbackType,
@@ -690,7 +690,7 @@ def tasker(password):
                 self_job._state = "EXCEPTION"
                 self_job.commander.logger.error(f"Encountered an exception in the job task. Error: {e}, job: {self_job}")
                 self_job.exception = e
-                await self_job.commander._callback_handle(callback=self_job._callback, which="at_exception", task_node=self_job)
+                await self_job.commander._handle_callback(callback=self_job._callback, which="at_exception", task_node=self_job)
             else:
                 if isinstance(result, HandlerCoroutine):
                     self_job.call_handler(handler=result)
@@ -729,13 +729,13 @@ class HandlerCoroutine(TaskNode, Generic[H]):
         It executes the callback functions specified by 'at_handler_end'.
         """
         if self._callback is not None:
-            await self.commander._callback_handle(callback=self._callback, which="at_handler_end", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_handler_end", task_node=self)
     
     async def wrap_coroutine(self) -> H | None:
         """Wrap the coroutine of handler."""
         # handle "at_handler_start" callback
         if self._callback is not None:
-            await self.commander._callback_handle(callback=self._callback, which="at_handler_start", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_handler_start", task_node=self)
 
         assert self.coro is not None
         coro = cast(Coroutine, self.coro)
@@ -745,7 +745,7 @@ class HandlerCoroutine(TaskNode, Generic[H]):
             self._state = "EXCEPTION"
             self.commander.logger.error(f"Encountered an exception in the handler. Error: {e}, handler: {self}")
             self.exception = e
-            await self.commander._callback_handle(callback=self._callback, which="at_exception", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_exception", task_node=self)
         else:
             self.result = result
             return result
@@ -865,7 +865,7 @@ def handler(password: str):
     The handler can be either a method of a class or a regular function.
     """
     
-    # Imperfection ############################################################################################3
+    # Imperfection #############################################################################################
     # For the following incorrect usage case, the type checking system fails to provide error notifications    #
     # because it matches it with the second overload method:                                                   #
     # @handler(PASS_WORD)                                                                                      #
@@ -1181,7 +1181,7 @@ class Job(TaskNode, metaclass=ABCMeta):
         It executes the callback functions specified by 'at_job_end'.
         """
         if self._callback is not None:
-            await self.commander._callback_handle(callback=self._callback, which="at_job_end", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_job_end", task_node=self)
 
     async def put_job(self, job: Job, parent: TaskNode | None = None, requester: TaskNode | None = None):
         """Add a job.

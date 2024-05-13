@@ -17,6 +17,7 @@ from ._exceptions import (
     CommanderAlreadyRunningError,
 )
 
+
 __all__ = [
     "PASS_WORD",
     "CommanderAsyncInterface",
