@@ -288,7 +288,7 @@ async def test_dispatcher():
     async_iterable = async_generator(response)
     make_role_generator = await async_dispatcher_tools_call_for_openai(source=async_iterable)
     to_user_gen = make_role_generator("to_user")
-    function_call_gen = make_role_generator("function_call")
+    function_call_gen = make_role_generator("tool_call")
     to_user_list = []
     function_call_list = []
     async for to_user in to_user_gen:

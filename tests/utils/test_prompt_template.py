@@ -77,13 +77,10 @@ def test_prompt_template_prompt_method(prompt_template: str):
     # Action
     template = template.render(name="test_prompt_template_prompt_method")
 
-    try:
-        prompt = template.prompt
-    except PromptTemplateError:
-        prompt = "Error"
-
     # Assert
-    assert prompt == "Error"
+    with pytest.raises(PromptTemplateError):
+        prompt = template.prompt
+    
     assert str(template) == """This is a test of a prompt template.
     The test name is test_prompt_template_prompt_method,
     and the number is {{ number }}.
@@ -95,7 +92,7 @@ def test_prompt_template_prompt_method(prompt_template: str):
     try:
         prompt = template.prompt
     except PromptTemplateError:
-        prompt = "Error"
+        pytest.fail("There should not be PromptTemplateError now.")
 
     # Assert
     assert prompt == """This is a test of a prompt template.
