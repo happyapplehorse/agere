@@ -1,6 +1,6 @@
-from tool_models._custom_tool_model import CustomToolModel
-from tool_models._custom_tool_model import CUSTOM_TOOL_MANUAL_TEMPLATE
-from tool_models._tool_model_for_openai import OpenaiToolModel
+from .custom_tool_model import CustomToolModel
+from .openai_tool_model import OpenaiToolModel
+from .custom_tool_prompt import CUSTOM_TOOL_MANUAL_TEMPLATE
 
 
 __all__ = [

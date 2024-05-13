@@ -3,7 +3,7 @@ import json
 from collections.abc import Callable, Coroutine
 from typing import Any, AsyncIterator, AsyncGenerator, Literal
 
-from ._custom_tool_prompt import CUSTOM_TOOL_MANUAL_TEMPLATE
+from .custom_tool_prompt import CUSTOM_TOOL_MANUAL_TEMPLATE
 from .._tool_base import ToolModelInterface, ToolMetadata, ParseResponseError
 from ..prompt_template import render_prompt
 
@@ -13,12 +13,22 @@ class CustomToolModel(ToolModelInterface):
     def __init__(
         self,
         tool_bead_maker: Callable[[str], Any],
+        custom_tool_manual_template: str | None = None,
     ):
         self.tool_bead_maker: Callable[[str], Any] = tool_bead_maker
+        self._custom_tool_manual_template = custom_tool_manual_template
 
     @property
     def tool_model_name(self):
         return "CUSTOM"
+
+    @property
+    def custom_tool_manual_template(self) -> str:
+        return self._custom_tool_manual_template or CUSTOM_TOOL_MANUAL_TEMPLATE
+
+    @custom_tool_manual_template.setter
+    def custom_tool_manual_template(self, value: str) -> None:
+        self._custom_tool_manual_template = value
 
     def tool_manual_bead_maker(self, manual: str) -> Any:
         return self.tool_bead_maker(manual)
@@ -33,7 +43,10 @@ class CustomToolModel(ToolModelInterface):
             }
             tools_instruction.append(tool_dict)
         tools_instruction_str = json.dumps(tools_instruction, indent=4)
-        return render_prompt(CUSTOM_TOOL_MANUAL_TEMPLATE, tools=tools_instruction_str)
+        return render_prompt(
+            self.custom_tool_manual_template,
+            tools=tools_instruction_str,
+        )
 
     async def parse_response(
         self,

@@ -1,5 +1,15 @@
+import re
+import inspect
 from collections.abc import Callable
-from typing import Literal, Any, AsyncGenerator, AsyncIterator
+from typing import (
+    Literal,
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    TypeVar,
+    overload,
+)
 
 from ._tool_base import (
     CustomToolModelInterface,
@@ -16,8 +26,21 @@ class ToolError(AgereUtilsError):
     """Raised when encountering an error related to the tool."""
 
 
-def tool(description: str):
+F = TypeVar('F', bound=Callable[..., Any])
+
+# Bare decorator usage.
+@overload
+def tool(__func: F) -> F: ...
+
+# Decorator with arguments.
+@overload
+def tool(*, description: str = '') -> Callable[[F], F]: ...
+
+# Implementation.
+def tool(__func: Callable[..., Any] | None = None, *, description: str = ''):
     """Decorator for a tool."""
+
+    from_docstring = True if __func is not None else False
 
     def decorator(func):
         func.__tool__ = True
@@ -26,9 +49,26 @@ def tool(description: str):
             func.__tool_parameters__ = []
         if not hasattr(func, "__tool_kit__"):
             func.__tool_kit__ = None
+        
+        if from_docstring:
+            metadata = _parse_docstring(func)
+            
+            description_from_docstring = metadata["description"]
+            if not func.__tool_description__:
+                func.__tool_description__ = description_from_docstring
+
+            param_from_docstring = metadata["parameters"]
+            param_name_list = [param["name"] for param in func.__tool_parameters__]
+            for param_docs in param_from_docstring:
+                if param_docs["name"] not in param_name_list:
+                    func.__tool_parameters__.append(param_docs)
+
         return func
     
-    return decorator
+    if __func is not None:
+        return decorator(__func)
+    else:
+        return decorator
 
 def tool_kit(tool_kit_name: str, tool_kit_description: str | None = None):
     """Decorator for a tool.
@@ -72,8 +112,29 @@ def tool_parameter(
     def decorator(func):
         if not hasattr(func, "__tool_parameters__"):
             func.__tool_parameters__ = []
-        func.__tool_parameters__.append(
-            {
+
+        matching_param = next(
+            (
+                param_info
+                for param_info in func.__tool_parameters__
+                if param_info.get("name") == name
+            ),
+            None,
+        )
+
+        if not matching_param:
+            func.__tool_parameters__.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "default_value": default_value,
+                    "param_type": param_type,
+                    "choices": choices,
+                    "required": required,
+                }
+            )
+        else:
+            matching_param = {
                 "name": name,
                 "description": description,
                 "default_value": default_value,
@@ -81,10 +142,48 @@ def tool_parameter(
                 "choices": choices,
                 "required": required,
             }
-        )
+
         return func
 
     return decorator
+
+def _parse_docstring(func) -> dict:
+    docstring = inspect.getdoc(func) or ''
+    
+    metadata = {
+        'description': '',
+        'parameters': []
+    }
+    
+    param_pattern = re.compile(r'Args:\n\s*(.*?)(?=\n\nReturns:|$)', re.DOTALL)
+    
+    param_info_pattern = re.compile(r'(\w+)\s*(?:\(([^)]*)\))?\s*:(.*?)(?=\n|$)', re.DOTALL)
+    
+    description_pattern = re.compile(r'(.+?)(?=\n\nArgs:)', re.DOTALL)
+    description_match = description_pattern.search(docstring)
+    metadata['description'] = description_match.group(1).strip() if description_match else ''
+    
+    param_block_match = param_pattern.search(docstring)
+    if param_block_match:
+        param_block = param_block_match.group(1)
+        
+        for param_match in param_info_pattern.finditer(param_block):
+            param_name = param_match.group(1)
+            param_type = param_match.group(2).strip() if param_match.group(2) else 'string'
+            param_description = param_match.group(3).strip()
+            
+            metadata['parameters'].append(
+                {
+                    'name': param_name,
+                    'description': param_description,
+                    'default_value': '',
+                    'param_type': param_type,
+                    'choices': None,
+                    'required': True,
+                }
+            )
+    
+    return metadata
 
 
 class ToolsManager(ToolsManagerInterface):
@@ -236,7 +335,7 @@ class ToolsManager(ToolsManagerInterface):
         if "TEMPORARY" in by_types:
             tool_names.update(self._temporary_tools.keys())
         if by_names:
-            tool_names.update(by_types)
+            tool_names.update(by_names)
         return self.get_tools_metadata_by_names(list(tool_names))
 
     def get_tools_metadata_by_names(self, names: list[str | ToolKit]) -> list[ToolMetadata]:
