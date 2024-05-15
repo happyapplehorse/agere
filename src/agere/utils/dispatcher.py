@@ -7,13 +7,19 @@ from agere.commander._null_logger import get_null_logger
 
 async def async_dispatcher_tools_call_for_openai(
     source: AsyncIterator,
+    to_user_flag: str = "to_user",
     logger: logging.Logger | None = None,
-    ) -> Callable[[Literal["to_user", "function_call"]], AsyncGenerator]:
+) -> Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]:
     """Dispatch the message to user and tools call.
 
     It automatically parses the "to_user" parameter in function calls,
-    removes it from the function's parameter list, and sends it to the 'to_user' generator.
+    removes it from the function's parameter list, and sends it to the "to_user" generator.
+    The name of the parameter corresponding to "to_user" can be specified by to_user_flag.
     The remaining function call parameters are sent to the 'function_call' generator.
+
+    source: The source of the message to be parsed, which must be an asynchronous iterator.
+    to_user_flag: Specify the name of the parameter that represents the to_user part.
+    logger: A Logger.
 
     Returns:
         make_generator (Callable[[Literal["to_user", "function_call"]], AsyncGenerator]):
@@ -146,12 +152,12 @@ async def async_dispatcher_tools_call_for_openai(
                 continue
 
             # Before to_user start flag is found.
-            to_user_key_start = buffer.find('"to_user":')
+            to_user_key_start = buffer.find(f'"{to_user_flag}":')
             if to_user_key_start == -1:
                 continue # Do not find the "to_user" key, continue to receive the next chunk.
             # In 'to_user' param:
             before_to_user_content = buffer[: to_user_key_start]
-            to_user_content_start = buffer.find('"', find_to_user_content_start_position or to_user_key_start + 10)
+            to_user_content_start = buffer.find('"', find_to_user_content_start_position or to_user_key_start+len(to_user_flag)+3)
             if to_user_content_start != -1 and buffer[to_user_content_start - 1] != '\\':
                 # In the dictionary, the double quotes representing key-value are regular double quotes '"',
                 # while double quotes inside strings are escaped double quotes '\"'.
@@ -170,7 +176,7 @@ async def async_dispatcher_tools_call_for_openai(
                 # where the string content of the 'to_user' is not immediately followed after '"to_user":'
                 find_to_user_content_start_position = to_user_content_start
 
-    role_queue_dict = {"to_user":to_user_queue, "function_call":function_call_queue}
+    role_queue_dict = {"to_user": to_user_queue, "tool_call": function_call_queue}
     
     def make_generator(role_name: str):
         async def generator():

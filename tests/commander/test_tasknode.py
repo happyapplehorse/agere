@@ -37,7 +37,7 @@ async def test_terminate_task_node(tasknode):
     tasknode_parent.del_child = AsyncMock()
     tasknode._parent = tasknode_parent
     commander = Mock()
-    commander._callback_handle = AsyncMock()
+    commander._handle_callback = AsyncMock()
     tasknode._commander = commander
     callback = Mock()
     tasknode._callback = callback
@@ -49,7 +49,7 @@ async def test_terminate_task_node(tasknode):
     assert tasknode._children == []
     assert tasknode.state == "TERMINATED"
     tasknode_parent.del_child.assert_called_with(tasknode)
-    commander._callback_handle.assert_called_with(
+    commander._handle_callback.assert_called_with(
         callback=callback,
         which="at_terminate",
         task_node=tasknode,
@@ -65,7 +65,7 @@ async def test_close_task_node():
     tasknode_5 = TaskNode()
     tasknode_6 = TaskNode()
     commander = Mock()
-    commander._callback_handle = AsyncMock()
+    commander._handle_callback = AsyncMock()
     tasknode_2._commander = commander
     callback = Mock()
     tasknode_2._callback = callback
@@ -87,7 +87,7 @@ async def test_close_task_node():
     assert tasknode_4.state == "TERMINATED"
     assert tasknode_5.state == "TERMINATED"
     assert tasknode_6.state == "TERMINATED"
-    commander._callback_handle.assert_called_with(
+    commander._handle_callback.assert_called_with(
         callback=callback,
         which="at_terminate",
         task_node=tasknode_2,

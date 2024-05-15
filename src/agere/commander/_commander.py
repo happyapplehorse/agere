@@ -7,19 +7,25 @@ import threading
 import weakref
 from abc import ABCMeta, abstractmethod
 from asyncio import AbstractEventLoop, Task
+from collections.abc import (
+    Callable,
+    Coroutine,
+    Iterable,
+    Sequence,
+)
 from functools import wraps
 from inspect import iscoroutinefunction
 from typing import (
+    Any,
+    Concatenate,
     TypeVar,
     Generic,
-    Coroutine,
-    Sequence,
-    Iterable,
     Literal,
     Final,
+    ParamSpec,
     TypedDict,
-    Callable,
     cast,
+    overload,
 )
 
 from ._exceptions import (
@@ -157,7 +163,7 @@ class TaskNode:
         """
         self._children.clear()
         if self._callback:
-            await self.commander._callback_handle(callback=self._callback, which="at_terminate", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_terminate", task_node=self)
         parent = self.parent
         self._state = "TERMINATED"
         if parent != "Null":
@@ -181,7 +187,7 @@ class TaskNode:
         self._children.clear()
 
         if self._callback:
-            await self.commander._callback_handle(callback=self._callback, which="at_terminate", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_terminate", task_node=self)
         
         parent = self.parent
         if parent != "Null":
@@ -476,7 +482,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
 
             callback = getattr(job, "callback", None)
             if callback is not None:
-                await self._callback_handle(callback=callback, which="at_job_start", task_node=job)
+                await self._handle_callback(callback=callback, which="at_job_start", task_node=job)
                 at_commander_end = callback.at_commander_end
                 if at_commander_end:
                     self._callbacks_at_commander_end_list.append(callback)
@@ -489,7 +495,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
             await job_task()
 
         for callback in self._callbacks_at_commander_end_list:
-            await self._callback_handle(callback=callback, which="at_commander_end")
+            await self._handle_callback(callback=callback, which="at_commander_end")
         self._callbacks_at_commander_end_list = []
         # To ensure the order of setting __loop_exit_event and __thread_exit_event.
         # __loop_exit_event.set() must be executed first, followed by _event_loop.stop()
@@ -497,7 +503,7 @@ class CommanderAsync(CommanderAsyncInterface[T]):
         assert self._event_loop is not None  # For type check
         self._event_loop.stop()
 
-    async def _callback_handle(
+    async def _handle_callback(
         self,
         callback: Callback | None,
         which: CallbackType,
@@ -684,12 +690,10 @@ def tasker(password):
                 self_job._state = "EXCEPTION"
                 self_job.commander.logger.error(f"Encountered an exception in the job task. Error: {e}, job: {self_job}")
                 self_job.exception = e
-                await self_job.commander._callback_handle(callback=self_job._callback, which="at_exception", task_node=self_job)
+                await self_job.commander._handle_callback(callback=self_job._callback, which="at_exception", task_node=self_job)
             else:
-                if result is not None:
-                    assert isinstance(result, HandlerCoroutine)
-                    if isinstance(result, HandlerCoroutine):
-                        self_job.call_handler(handler=result)
+                if isinstance(result, HandlerCoroutine):
+                    self_job.call_handler(handler=result)
                 self_job.result = result
                 return result
             finally:
@@ -699,7 +703,10 @@ def tasker(password):
     return decorator
 
 
-class HandlerCoroutine(TaskNode):
+H = TypeVar("H")
+
+
+class HandlerCoroutine(TaskNode, Generic[H]):
     """Handler object
 
     It can be awaited.
@@ -711,7 +718,7 @@ class HandlerCoroutine(TaskNode):
     def __init__(self):
         super().__init__()
         self.__handler__ = True
-        self.coro = None
+        self.coro: Coroutine | None = None
         self._callback: Callback | None = None
         self.result = None
         self.exception: Exception | None = None
@@ -722,13 +729,13 @@ class HandlerCoroutine(TaskNode):
         It executes the callback functions specified by 'at_handler_end'.
         """
         if self._callback is not None:
-            await self.commander._callback_handle(callback=self._callback, which="at_handler_end", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_handler_end", task_node=self)
     
-    async def wrap_coroutine(self):
+    async def wrap_coroutine(self) -> H | None:
         """Wrap the coroutine of handler."""
         # handle "at_handler_start" callback
         if self._callback is not None:
-            await self.commander._callback_handle(callback=self._callback, which="at_handler_start", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_handler_start", task_node=self)
 
         assert self.coro is not None
         coro = cast(Coroutine, self.coro)
@@ -738,7 +745,7 @@ class HandlerCoroutine(TaskNode):
             self._state = "EXCEPTION"
             self.commander.logger.error(f"Encountered an exception in the handler. Error: {e}, handler: {self}")
             self.exception = e
-            await self.commander._callback_handle(callback=self._callback, which="at_exception", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_exception", task_node=self)
         else:
             self.result = result
             return result
@@ -789,7 +796,7 @@ class HandlerCoroutine(TaskNode):
 
         Args:
             which: Specify the type of the callback functions to be added.
-            functions_info: The dict of the callback functions.
+            functions_info: The dict or list of dicts of the callback functions.
         """
         if self._callback is None:
             self._callback = Callback()
@@ -847,18 +854,45 @@ def _is_first_param_bound(fun) -> bool:
     else:
         assert False, "The class where the handler is located cannot be a nested local class."
 
-def handler(password):
+P = ParamSpec('P')
+R = TypeVar('R')
+
+def handler(password: str):
     """Decorator for handler
 
     Handlers decorated with this decorator must be a coroutine function,
     and should not contain time-consuming tasks that block the thread.
     The handler can be either a method of a class or a regular function.
     """
+    
+    # Imperfection #############################################################################################
+    # For the following incorrect usage case, the type checking system fails to provide error notifications    #
+    # because it matches it with the second overload method:                                                   #
+    # @handler(PASS_WORD)                                                                                      #
+    # def func_handler(first_param: int, self_handler):                                                        #
+    #     pass                                                                                                 #
+    ############################################################################################################
+
     assert password == PASS_WORD, ("The password is incorrect, "
         "you should ensure that all time-consuming tasks are placed outside of the commander. "
         "Time-consuming tasks pose a risk of blocking the commander. "
         "The correct password is: I assure all time-consuming tasks are delegated externally")
-    def decorator(coro_func):
+
+    # First, order is important!
+    @overload
+    def decorator(
+        coro_func: Callable[Concatenate[HandlerCoroutine, P], Coroutine[Any, Any, R]]
+    ) -> Callable[P, HandlerCoroutine[R]]: ...
+    
+    # Second, order is important!
+    @overload
+    def decorator(
+        coro_func: Callable[Concatenate[Any, HandlerCoroutine, P], Coroutine[Any, Any, R]]
+    ) -> Callable[Concatenate[Any, P], HandlerCoroutine[R]]: ...
+    
+    def decorator(
+        coro_func  #: Callable[Concatenate[HandlerCoroutine, P], Coroutine[Any, Any, R]] | Callable[Concatenate[Any, HandlerCoroutine, P], Coroutine[Any, Any, R]]
+    ) -> Callable[P, HandlerCoroutine[R]] | Callable[Concatenate[Any, P], HandlerCoroutine[R]]:
         """
         Decorate a handler to a HandlerCoroutine.
         HandlerCoroutine object dose:
@@ -869,7 +903,7 @@ def handler(password):
             raise TypeError("Handler function must be a coroutine function.")
 
         @wraps(coro_func)
-        def wrap_function(*args, **kwargs):
+        def wrap_function(*args: P.args, **kwargs: P.kwargs) -> HandlerCoroutine[R]:
             handler_coroutine = HandlerCoroutine()
             if _is_first_param_bound(coro_func):
                 coro = coro_func(args[0], handler_coroutine, *args[1:], **kwargs)
@@ -905,7 +939,7 @@ def handler(password):
                         value._task_node = handler_coroutine
             handler_coroutine.coro = coro
             return handler_coroutine
-       
+
         return wrap_function
     return decorator
 
@@ -1127,7 +1161,7 @@ class Job(TaskNode, metaclass=ABCMeta):
         if callback is not None:
             callback._task_node = self
         self._callback = callback
-        self.result = None
+        self.result: Any = None
         self.exception: Exception | None = None
 
     @abstractmethod
@@ -1147,7 +1181,7 @@ class Job(TaskNode, metaclass=ABCMeta):
         It executes the callback functions specified by 'at_job_end'.
         """
         if self._callback is not None:
-            await self.commander._callback_handle(callback=self._callback, which="at_job_end", task_node=self)
+            await self.commander._handle_callback(callback=self._callback, which="at_job_end", task_node=self)
 
     async def put_job(self, job: Job, parent: TaskNode | None = None, requester: TaskNode | None = None):
         """Add a job.
@@ -1190,7 +1224,7 @@ class Job(TaskNode, metaclass=ABCMeta):
 
         Args:
             which: Specify the type of the callback functions to be added.
-            functions_info: The dict of the callback functions.
+            functions_info: The dict or list of dicts of the callback functions.
         """
         if self._callback is None:
             self._callback = Callback()
