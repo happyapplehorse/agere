@@ -26,7 +26,7 @@ response = [
 
 
 @pytest.fixture
-def async_custom_llm_response_fixture() -> AsyncIterable:
+def async_custom_llm_response() -> AsyncIterable:
     
     async def async_gen(iterable):
         for item in iterable:

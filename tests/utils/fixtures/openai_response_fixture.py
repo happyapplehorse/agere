@@ -281,7 +281,7 @@ response = [
 
 
 @pytest.fixture
-def async_openai_response_fixture() -> AsyncIterable:
+def async_openai_response() -> AsyncIterable:
             
     async def async_gen(iterable):
         for item in iterable:

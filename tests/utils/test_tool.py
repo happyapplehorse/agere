@@ -1,97 +1,8 @@
 import json
 import pytest
-from typing import TypedDict
 
-from agere.utils.tool import (
-    ToolsManager,
-    tool,
-    tool_kit,
-    tool_parameter,
-)
-from agere.utils.tool_models import CustomToolModel, OpenaiToolModel
-from agere.utils.tool import ToolsManagerInterface, ToolKit, ToolMetadata
+from agere.utils.tool import ToolsManagerInterface, ToolMetadata
 
-
-kit_example = ToolKit()
-
-@tool(description="The description for the tool.")
-@tool_parameter(
-    name="value",
-    description="The description for the parameter of name.",
-    default_value=1,
-    choices=[1, 3, 5,7],
-)
-def tool_function_example(value: int = 1) -> int:
-    return value
-
-@tool(description="This is a example tool which says hello to someone.")
-@tool_kit(
-    kit=kit_example,
-    description="The description for the kit."
-)
-@tool_parameter(
-    name="name",
-    description="The name to say hello."
-)
-def tool_say_hello_example(name: str) -> str:
-    return f"Hi, {name}!"
-
-@tool
-@tool_kit(kit=kit_example)
-def tool_say_goodbye_example(name: str) -> str:
-    """This is a example tool which says goodbye to someone.
-
-    Args:
-        name (str): The name to say goodbye.
-    """
-    return f"Goodbye, {name}"
-
-class ToolExample:
-    @tool
-    @tool_parameter(
-        name="value2",
-        description="The second value.",
-        default_value=2,
-    )
-    def tool_method_example(self, value1: int, value2: int = 0) -> int:
-        """This is a tool example which is a class method.
-
-        This tool return the addition of the given two value.
-
-        Args:
-            value1 (int): The first value.
-            value2 (int): The second value.
-        """
-        return value1 + value2
-
-
-class ContextPiece(TypedDict):
-    role: str
-    content: str
-
-
-def tool_bead_maker(tool_info: str) -> ContextPiece:
-    return {
-        "role": "system",
-        "content": tool_info,
-    }
-
-def tool_token_counter(tool_info: str) -> int:
-    return len(tool_info)
-
-@pytest.fixture
-def custom_tools_manager() -> ToolsManagerInterface:
-    custom_tool_model = CustomToolModel(
-        tool_bead_maker=tool_bead_maker,
-    )
-    return ToolsManager(tool_model=custom_tool_model)
-
-@pytest.fixture
-def openai_tools_manager() -> ToolsManagerInterface:
-    openai_tool_model = OpenaiToolModel(
-        tool_token_counter=tool_token_counter,
-    )
-    return ToolsManager(tool_model=openai_tool_model)
 
 class TestTool:
     def test_tool_model_name(
@@ -112,10 +23,15 @@ class TestTool:
         assert custom_tools_manager.tool_model_type == "CUSTOM"
         assert openai_tools_manager.tool_model_type == "PROVIDED"
 
-    def test_add_tool(self, custom_tools_manager: ToolsManagerInterface):
+    def test_add_tool(
+        self,
+        custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_kit_example,
+    ):
         # Action
         custom_tools_manager.add_tool(tool_function_example)
-        custom_tools_manager.add_tool(kit_example, tool_type="PERMANENT")
+        custom_tools_manager.add_tool(tool_kit_example, tool_type="PERMANENT")
         temporary_tools_names = [metadata.name for metadata in custom_tools_manager.get_tools_metadata(by_types=["TEMPORARY"])]
         permanent_tools_names = [metadata.name for metadata in custom_tools_manager.get_tools_metadata(by_types=["PERMANENT"])]
 
@@ -126,9 +42,11 @@ class TestTool:
     def add_tools(
         self,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
     ):
         # Action
-        openai_tools_manager.add_tools(tools=[tool_function_example, ToolExample().tool_method_example])
+        openai_tools_manager.add_tools(tools=[tool_function_example, tool_method_example])
         temporary_tools_names = [metadata.name for metadata in openai_tools_manager.get_tools_metadata(by_types=["TEMPORARY"])]
 
         # Assert
@@ -137,9 +55,11 @@ class TestTool:
     def test_remove_tool(
         self,
         custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
     ):
         # Setup
-        custom_tools_manager.add_tools(tools=[tool_function_example, ToolExample().tool_method_example])
+        custom_tools_manager.add_tools(tools=[tool_function_example, tool_method_example])
         
         # Action
         custom_tools_manager.remove_tool(tool="tool_function_example")
@@ -151,16 +71,18 @@ class TestTool:
     def test_remove_tools(
         self,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
-        tool_example = ToolExample()
         openai_tools_manager.add_tools(
-            tools=[tool_function_example, tool_example.tool_method_example, kit_example],
+            tools=[tool_function_example, tool_method_example, tool_kit_example],
             tool_type="PERMANENT",
         )
         
         # Action
-        openai_tools_manager.remove_tools(tools=[tool_example.tool_method_example, kit_example], tool_type="PERMANENT")
+        openai_tools_manager.remove_tools(tools=[tool_method_example, tool_kit_example], tool_type="PERMANENT")
         permanent_tools_names = [metadata.name for metadata in openai_tools_manager.get_tools_metadata(by_types=["PERMANENT"])]
         
         # Assert
@@ -169,16 +91,18 @@ class TestTool:
     def test_clear_tools(
         self,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
-        tool_example = ToolExample()
         openai_tools_manager.add_tools(
-            tools=[tool_function_example, tool_example.tool_method_example, kit_example],
+            tools=[tool_function_example, tool_method_example, tool_kit_example],
             tool_type="PERMANENT",
         )
         
         # Action
-        openai_tools_manager.remove_tools(tools=[tool_example.tool_method_example, kit_example], tool_type="PERMANENT")
+        openai_tools_manager.remove_tools(tools=[tool_method_example, tool_kit_example], tool_type="PERMANENT")
         openai_tools_manager.clear_tools(tool_type="PERMANENT")
         permanent_tools_names = [metadata.name for metadata in openai_tools_manager.get_tools_metadata(by_types=["PERMANENT"])]
         
@@ -188,9 +112,11 @@ class TestTool:
     def test_register_tools(
         self,
         custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_kit_example,
     ):
         # Action
-        custom_tools_manager.register_tools(tools=[tool_function_example, kit_example])
+        custom_tools_manager.register_tools(tools=[tool_function_example, tool_kit_example])
         
         # Assert
         assert set(custom_tools_manager.registered_tool_names) == {
@@ -202,12 +128,15 @@ class TestTool:
     def test_unregister_tools(
         self,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
-        openai_tools_manager.register_tools(tools=[tool_function_example, kit_example, ToolExample().tool_method_example])
+        openai_tools_manager.register_tools(tools=[tool_function_example, tool_kit_example, tool_method_example])
 
         # Action
-        openai_tools_manager.unregister_tools(tools=["tool_method_example", kit_example])
+        openai_tools_manager.unregister_tools(tools=["tool_method_example", tool_kit_example])
 
         # Assert
         assert openai_tools_manager.registered_tool_names == ["tool_function_example"]
@@ -215,12 +144,15 @@ class TestTool:
     def test_clear_registered_tools(
         self,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
-        openai_tools_manager.register_tools(tools=[tool_function_example, kit_example, ToolExample().tool_method_example])
+        openai_tools_manager.register_tools(tools=[tool_function_example, tool_kit_example, tool_method_example])
 
         # Action
-        openai_tools_manager.unregister_tools(tools=["tool_method_example", kit_example])
+        openai_tools_manager.unregister_tools(tools=["tool_method_example", tool_kit_example])
         openai_tools_manager.clear_registered_tools()
 
         # Assert
@@ -229,10 +161,13 @@ class TestTool:
     def test_all_tools_names(
         self,
         custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Action
         custom_tools_manager.add_tool(tool_function_example, "PERMANENT")
-        custom_tools_manager.add_tools([tool_function_example, ToolExample().tool_method_example], "TEMPORARY")
+        custom_tools_manager.add_tools([tool_function_example, tool_method_example], "TEMPORARY")
 
         # Assert
         assert set(custom_tools_manager.all_tools_names) == {
@@ -241,7 +176,7 @@ class TestTool:
         }
 
         # Action
-        custom_tools_manager.register_tools([kit_example, tool_function_example])
+        custom_tools_manager.register_tools([tool_kit_example, tool_function_example])
 
         # Assert
         assert set(custom_tools_manager.all_tools_names) == {
@@ -251,7 +186,11 @@ class TestTool:
             "tool_say_goodbye_example",
         }
 
-    def test_create_tool_metadata(self, custom_tools_manager: ToolsManagerInterface):
+    def test_create_tool_metadata(
+        self,
+        custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+    ):
         # Setup
         custom_tools_manager.add_tool(tool_function_example)
 
@@ -275,10 +214,15 @@ class TestTool:
         assert metadata.linked_tool == tool_function_example
         assert metadata.tool_kit is None
 
-    def test_get_tools_metadata(self, openai_tools_manager: ToolsManagerInterface):
+    def test_get_tools_metadata(
+        self,
+        openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_kit_example,
+    ):
         # Setup
         openai_tools_manager.add_tool(tool_function_example, "PERMANENT")
-        openai_tools_manager.register_tool(kit_example)
+        openai_tools_manager.register_tool(tool_kit_example)
 
         # Action
         metadata_list = openai_tools_manager.get_tools_metadata(
@@ -289,14 +233,19 @@ class TestTool:
         assert len(metadata_list) == 2
         assert {metadata.name for metadata in metadata_list} == {"tool_function_example", "tool_say_hello_example"}
 
-    def test_get_tools_metadata_by_names(self, openai_tools_manager: ToolsManagerInterface):
+    def test_get_tools_metadata_by_names(
+        self,
+        openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_kit_example,
+    ):
         # Setup
         openai_tools_manager.add_tool(tool_function_example, "PERMANENT")
-        openai_tools_manager.register_tool(kit_example)
+        openai_tools_manager.register_tool(tool_kit_example)
 
         # Action
         metadata_list = openai_tools_manager.get_tools_metadata_by_names(
-            names=["tool_function_example", kit_example],
+            names=["tool_function_example", tool_kit_example],
         )
 
         # Assert
@@ -311,12 +260,15 @@ class TestTool:
         self,
         custom_tools_manager: ToolsManagerInterface,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
-        custom_tools_manager.add_tools([tool_function_example, ToolExample().tool_method_example])
-        custom_tools_manager.add_tool(kit_example, "PERMANENT")
-        openai_tools_manager.add_tool(kit_example)
-        openai_tools_manager.add_tools([ToolExample.tool_method_example, tool_function_example], "PERMANENT")
+        custom_tools_manager.add_tools([tool_function_example, tool_method_example])
+        custom_tools_manager.add_tool(tool_kit_example, "PERMANENT")
+        openai_tools_manager.add_tool(tool_kit_example)
+        openai_tools_manager.add_tools([tool_method_example, tool_function_example], "PERMANENT")
         openai_tools_manager.register_tool(tool_function_example)
 
         # Action
@@ -332,7 +284,11 @@ class TestTool:
         assert isinstance(manual_for_openai, list)
         assert len(manual_for_openai) == 3
 
-    def test_get_linked_tool(self, custom_tools_manager: ToolsManagerInterface):
+    def test_get_linked_tool(
+        self,
+        custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+    ):
         # Setup
         custom_tools_manager.add_tool(tool_function_example)
 
@@ -346,11 +302,14 @@ class TestTool:
         self,
         custom_tools_manager: ToolsManagerInterface,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
         custom_tools_manager.add_tool(tool_function_example, "PERMANENT")
-        custom_tools_manager.add_tool(ToolExample().tool_method_example, "TEMPORARY")
-        custom_tools_manager.register_tool(kit_example)
+        custom_tools_manager.add_tool(tool_method_example, "TEMPORARY")
+        custom_tools_manager.register_tool(tool_kit_example)
         openai_tools_manager.add_tool(tool_function_example)
 
         # Action
@@ -369,6 +328,7 @@ class TestTool:
         self,
         custom_tools_manager: ToolsManagerInterface,
         openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
     ):
         # Setup
         custom_tools_manager.add_tool(tool_function_example)
@@ -387,10 +347,10 @@ class TestTool:
     async def test_custom_parse_response(
         self,
         custom_tools_manager: ToolsManagerInterface,
-        async_custom_llm_response_fixture,
+        async_custom_llm_response,
     ):
         # Action
-        make_role_generator = await custom_tools_manager.parse_response(async_custom_llm_response_fixture)
+        make_role_generator = await custom_tools_manager.parse_response(async_custom_llm_response)
         to_user_gen = make_role_generator("to_user")
         function_call_gen = make_role_generator("tool_call")
         to_user_list = []
@@ -427,10 +387,10 @@ class TestTool:
     async def test_openai_parse_response(
         self,
         openai_tools_manager: ToolsManagerInterface,
-        async_openai_response_fixture,
+        async_openai_response,
     ):
         # Action
-        make_role_generator = await openai_tools_manager.parse_response(async_openai_response_fixture)
+        make_role_generator = await openai_tools_manager.parse_response(async_openai_response)
         to_user_gen = make_role_generator("to_user")
         function_call_gen = make_role_generator("tool_call")
         to_user_list = []

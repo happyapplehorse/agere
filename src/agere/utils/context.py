@@ -337,7 +337,13 @@ class Context(Generic[ContextPiece]):
 
         Note: This value may change when obtaining the context_sending.
         """
-        return self._flowing_bead_position
+        assert self._flowing_bead_position >= 0
+        if self._flowing_bead_position >= 0:
+            return self._flowing_bead_position
+        elif self._flowing_bead_position >= -len(self._context):
+            return self._flowing_bead_position + len(self._context)
+        else:
+            assert False
 
     @property
     def fixed_bead_positions(self) -> list:
@@ -438,7 +444,7 @@ class Context(Generic[ContextPiece]):
 
         fixed = [] if "FIXED" not in bead else self.fixed_bead_positions if fixed == "ALL" else fixed
         flowing_backward_index = (
-            self.flowing_bead_position - len(self._context)
+            self.flowing_bead_position - len(self._context) - 1
             if "FLOWING" in bead else None
         )
         tool_names_list = cast(list[str | ToolKit], tool_names_list)
@@ -600,23 +606,55 @@ class Context(Generic[ContextPiece]):
 
         Returns:
             list: The content of the context with beads within the send window range.
+
+        Raises:
+            ContextTokenError: When there is not enough token space.
         """
-        if max_sending_token_num is None:
-            max_sending_token_num = self.max_sending_token_num
-        elif max_sending_token_num == "inf":
-            max_sending_token_num = None
-        if max_sending_token_num is None:
-            return self.bead_content["START"] \
-                + self._context[:self.flowing_bead_position] \
-                + self.bead_content["FLOWING"] \
-                + self._context[self.flowing_bead_position:] \
-                + self.bead_content["END"]
-        
         if tools_by_types or tools_by_names:
             fixed, bead = self._get_fixed_bead_config_with_tool(fixed=fixed, bead=bead)
         else:
             bead = ["START", "FLOWING", "FIXED", "END"] if bead == "ALL" else bead
             fixed = self.fixed_bead_positions if fixed == "ALL" else fixed
+        
+        if max_sending_token_num is None:
+            max_sending_token_num = self.max_sending_token_num
+        elif max_sending_token_num == "inf":
+            max_sending_token_num = None
+        
+        if max_sending_token_num is None:
+            result_inf = []
+            if "START" in bead:
+                result_inf.extend(self.bead_content["START"])
+            
+            flowing_backward_index = (
+                self.flowing_bead_position - len(self._context) - 1
+                if "FLOWING" in bead else None
+            )
+            if self._should_insert_tools_into_bead:
+                assert self.tools_manager is not None
+                tool_names_list = [tool.name
+                    for tool in self.tools_manager.get_tools_metadata(
+                        by_types=tools_by_types, by_names=tools_by_names,
+                    )
+                ]
+            else:
+                tool_names_list = []
+            
+            tool_names_list = cast(list[str | ToolKit], tool_names_list)
+            result_inf.extend(
+                self._insert_mid_bead(
+                    piece_list=self._context,
+                    fixed=fixed,
+                    flowing_backward_index=flowing_backward_index,
+                    tool_names=tool_names_list,
+                    is_lenght=False,
+                )
+            )
+
+            if "END" in bead:
+                result_inf.extend(self.bead_content["END"])
+            
+            return result_inf
         
         result = []
         used_length = 0

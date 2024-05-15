@@ -1,9 +1,10 @@
 import pytest
 from typing import TypedDict
 
-from agere.utils.context import Context, ContextPieceTypeError, _find_position
+from agere.utils.context import Context, ContextPieceTypeError, ContextTokenError, _find_position
 from agere.utils.context_models import OpenaiContextModel
 from agere.utils._context_model_base import ContextModelBase
+from agere.utils._tool_base import ToolsManagerInterface
 
 
 @pytest.mark.parametrize(
@@ -18,6 +19,50 @@ from agere.utils._context_model_base import ContextModelBase
 def test_find_position(lst: str, num: int, expected_pos: int):
     # Assert
     assert _find_position(lst, num) == expected_pos
+
+@pytest.fixture
+def start_beads():
+    return [
+        {
+            "role": "system",
+            "content": "Start bead 0."
+        },
+    ]  # length = [14]
+
+@pytest.fixture
+def flowing_beads():
+    return [
+        {
+            "role": "system",
+            "content": "Flowing bead 0."
+        },
+        {
+            "role": "system",
+            "content": "Flowing bead 1."
+        },
+    ]  # length = [16, 16]
+
+@pytest.fixture
+def fixed_beads():
+    return [
+        {
+            "role": "system",
+            "content": "Fixed bead 0."
+        },
+    ]  # length = [14]
+
+@pytest.fixture
+def end_beads():
+    return [
+        {
+            "role": "system",
+            "content": "End bead 0."
+        },
+        {
+            "role": "system",
+            "content": "End bead 1."
+        },
+    ]  # length = [12, 12]
 
 
 class CustomContextPiece(TypedDict):
@@ -514,40 +559,16 @@ class TestContext:
         # Assert
         assert trimmed_piece_list == context_piece_list[8:]
     
-    def test_context_sending(self, custom_context: Context, context_piece_list: list[CustomContextPiece]):
+    def test_context_sending(
+        self,
+        custom_context: Context,
+        context_piece_list: list[CustomContextPiece],
+        start_beads,
+        flowing_beads,
+        fixed_beads,
+        end_beads,
+    ):
         # Setup
-        start_beads = [
-            {
-                "role": "system",
-                "content": "Start bead 0."
-            },
-        ]  # length = [14]
-        flowing_beads = [
-            {
-                "role": "system",
-                "content": "Flowing bead 0."
-            },
-            {
-                "role": "system",
-                "content": "Flowing bead 1."
-            },
-        ]  # length = [16, 16]
-        fixed_beads = [
-            {
-                "role": "system",
-                "content": "Fixed bead 0."
-            },
-        ]  # length = [14]
-        end_beads = [
-            {
-                "role": "system",
-                "content": "End bead 0."
-            },
-            {
-                "role": "system",
-                "content": "End bead 1."
-            },
-        ]  # length = [12, 12]
         custom_context.bead_extend(beads=start_beads, which="START")
         custom_context.bead_extend(beads=flowing_beads, which="FLOWING")
         custom_context.bead_extend(beads=fixed_beads, which="FIXED", fixed=-2)
@@ -607,5 +628,138 @@ class TestContext:
             + flowing_beads
             + fixed_beads
             + [new_context_piece]
+            + end_beads
+        )
+
+    def test_custom_context_with_tool(
+        self,
+        custom_context: Context,
+        custom_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
+        context_piece_list: list[CustomContextPiece],
+        start_beads,
+        flowing_beads,
+        fixed_beads,
+        end_beads,
+    ):
+        # Setup
+        custom_context.tools_manager = custom_tools_manager
+        custom_context.tools_manager.add_tool(tool=tool_function_example, tool_type="PERMANENT")
+        custom_context.tools_manager.add_tool(tool=tool_method_example, tool_type="TEMPORARY")
+        custom_context.tools_manager.register_tool(tool=tool_kit_example)
+        custom_context.bead_extend(beads=start_beads, which="START")
+        custom_context.bead_extend(beads=flowing_beads, which="FLOWING")
+        custom_context.bead_extend(beads=fixed_beads, which="FIXED", fixed=-3)
+        custom_context.bead_extend(beads=end_beads, which="END")
+        custom_context.max_sending_token_num = 3000
+
+        # Action
+        for piece in context_piece_list:
+            custom_context.context_append(piece)
+        
+        tool_beads = custom_context.tools_manager.wrap_tools_to_bead(
+            custom_context.tools_manager.get_tools_metadata(by_types=["PERMANENT"])  # type: ignore
+        )
+        
+        # Assert
+        assert custom_context.context_sending(
+            tools_by_types=["PERMANENT"],
+            max_sending_token_num="inf",
+        ) == (
+            start_beads
+            + flowing_beads
+            + context_piece_list[:-1]
+            + fixed_beads
+            + tool_beads
+            + context_piece_list[-1:]
+            + end_beads
+        )
+
+        # Action
+        tool_beads = custom_context.tools_manager.wrap_tools_to_bead(
+            custom_context.tools_manager.get_tools_metadata(
+                by_names=["tool_function_example", "tool_method_example", tool_kit_example]
+            )  # type: ignore
+        )
+        
+        # Assert
+        with pytest.raises(ContextTokenError):
+            custom_context.context_sending(
+                tools_by_names=[tool_kit_example]
+            )
+        assert custom_context.context_sending(
+            tools_by_names=[tool_kit_example],
+            max_sending_token_num=3500,
+        ) == (
+            start_beads
+            + context_piece_list[14:]
+            + flowing_beads[:-1]
+            + fixed_beads
+            + tool_beads
+            + flowing_beads[-1:]
+            + end_beads
+        )
+
+    def test_openai_context_with_tool(
+        self,
+        openai_context: Context,
+        openai_tools_manager: ToolsManagerInterface,
+        tool_function_example,
+        tool_method_example,
+        tool_kit_example,
+        context_piece_list: list[CustomContextPiece],
+        start_beads,
+        flowing_beads,
+        fixed_beads,
+        end_beads,
+    ):
+        # Setup
+        openai_context.tools_manager = openai_tools_manager
+        openai_context.tools_manager.add_tool(tool=tool_function_example, tool_type="PERMANENT")
+        openai_context.tools_manager.add_tool(tool=tool_method_example, tool_type="TEMPORARY")
+        openai_context.tools_manager.register_tool(tool=tool_kit_example)
+        openai_context.bead_extend(beads=start_beads, which="START")
+        openai_context.bead_extend(beads=flowing_beads, which="FLOWING")
+        openai_context.bead_extend(beads=fixed_beads, which="FIXED", fixed=-3)
+        openai_context.bead_extend(beads=end_beads, which="END")
+        openai_context.bead_extend(beads=fixed_beads, which="FIXED", fixed="50%")
+        openai_context.max_sending_token_num = 3000
+
+        # Action
+        for piece in context_piece_list:
+            openai_context.context_append(piece)
+        
+        # Assert
+        assert openai_context.context_sending(
+            tools_by_types=["PERMANENT"],
+            max_sending_token_num="inf",
+        ) == (
+            start_beads
+            + flowing_beads
+            + context_piece_list[:9]
+            + fixed_beads  # 50%
+            + context_piece_list[9:-2]
+            + fixed_beads
+            + context_piece_list[-2:]
+            + end_beads
+        )
+        with pytest.raises(ContextTokenError):
+            openai_context.context_sending(
+                tools_by_names=[tool_kit_example],
+                max_sending_token_num=2500,
+            )
+        assert openai_context.context_sending(
+            tools_by_names=[tool_kit_example],
+            max_sending_token_num=2650,
+        ) == (
+            start_beads
+            + context_piece_list[12:17]
+            + fixed_beads  # 50%
+            + context_piece_list[17:]
+            + flowing_beads[:-2]
+            + fixed_beads
+            + flowing_beads[-2:]
             + end_beads
         )

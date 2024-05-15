@@ -3,9 +3,9 @@ import json
 from agere.utils.dispatcher import async_dispatcher_tools_call_for_openai
 
 
-async def test_dispatcher(async_openai_response_fixture):
+async def test_dispatcher(async_openai_response):
     # Setup
-    async_iterable = async_openai_response_fixture
+    async_iterable = async_openai_response
 
     # Action
     make_role_generator = await async_dispatcher_tools_call_for_openai(source=async_iterable)

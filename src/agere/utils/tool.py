@@ -494,15 +494,15 @@ class ToolsManager(ToolsManagerInterface):
         Returns:
             list[ToolMetadata]: The list of tool metadata.
         """
-        tool_names = set()
+        tool_names = []
         by_types = ["PERMANENT", "TEMPORARY"] if by_types == "ALL" else by_types
         if "PERMANENT" in by_types:
-            tool_names.update(self._permanent_tools.keys())
+            tool_names.extend([name for name in self._permanent_tools.keys() if name not in tool_names])
         if "TEMPORARY" in by_types:
-            tool_names.update(self._temporary_tools.keys())
+            tool_names.extend([name for name in self._temporary_tools.keys() if name not in tool_names])
         if by_names:
-            tool_names.update(by_names)
-        return self.get_tools_metadata_by_names(list(tool_names))
+            tool_names.extend([name for name in by_names if name not in tool_names])
+        return self.get_tools_metadata_by_names(tool_names)
 
     def get_tools_metadata_by_names(self, names: list[str | ToolKit]) -> list[ToolMetadata]:
         """Get metadata for tools based on a list of names or tool kits.
