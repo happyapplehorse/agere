@@ -4,11 +4,11 @@ from collections.abc import Callable, Coroutine
 from typing import Any, AsyncIterator, AsyncGenerator, Literal
 
 from .custom_tool_prompt import CUSTOM_TOOL_MANUAL_TEMPLATE
-from .._tool_base import ToolModelInterface, ToolMetadata, ParseResponseError
+from .._tool_base import CustomToolModelInterface, ToolMetadata, ParseResponseError
 from ..prompt_template import render_prompt
 
 
-class CustomToolModel(ToolModelInterface):
+class CustomToolModel(CustomToolModelInterface):
 
     def __init__(
         self,

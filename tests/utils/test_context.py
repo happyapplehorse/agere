@@ -119,10 +119,10 @@ class TestContext:
             "content": "Hi." * 20,
         }
 
-        custom_context.bead_overwrite(new_beads=bead_example, which="START")
-        custom_context.bead_overwrite(new_beads=bead_example, which="END")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FLOWING")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FIXED", fixed=-1)
+        custom_context.bead_update(new_beads=bead_example, which="START")
+        custom_context.bead_update(new_beads=bead_example, which="END")
+        custom_context.bead_update(new_beads=bead_example, which="FLOWING")
+        custom_context.bead_update(new_beads=bead_example, which="FIXED", fixed=-1)
 
         # Action
         state = custom_context.context_append(piece=short_piece)
@@ -151,10 +151,10 @@ class TestContext:
             "content": "Hi.",
         }
 
-        custom_context.bead_overwrite(new_beads=bead_example, which="START")
-        custom_context.bead_overwrite(new_beads=bead_example, which="END")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FLOWING")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FIXED", fixed=-1)
+        custom_context.bead_update(new_beads=bead_example, which="START")
+        custom_context.bead_update(new_beads=bead_example, which="END")
+        custom_context.bead_update(new_beads=bead_example, which="FLOWING")
+        custom_context.bead_update(new_beads=bead_example, which="FIXED", fixed=-1)
 
         # Action
         state = custom_context.context_extend(piece_list=[short_piece])
@@ -198,10 +198,10 @@ class TestContext:
 
     def test_bead_content(self, custom_context: Context, bead_example: list[CustomContextPiece]):
         # Setup
-        custom_context.bead_overwrite(new_beads=bead_example, which="START")
-        custom_context.bead_overwrite(new_beads=bead_example, which="END")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FLOWING")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FIXED", fixed=-1)
+        custom_context.bead_update(new_beads=bead_example, which="START")
+        custom_context.bead_update(new_beads=bead_example, which="END")
+        custom_context.bead_update(new_beads=bead_example, which="FLOWING")
+        custom_context.bead_update(new_beads=bead_example, which="FIXED", fixed=-1)
 
         expected_bead_content = {
             "START": [
@@ -274,7 +274,6 @@ class TestContext:
     def test_token_num(self, custom_context: Context, context_piece_list: list[CustomContextPiece]):
         # Setup
         state = custom_context.context_extend(piece_list=context_piece_list, max_sending_token_num=200)
-        print(state)
 
         # Action
         token_num = custom_context.token_num
@@ -290,10 +289,10 @@ class TestContext:
     ):
         # Setup
         custom_context.max_sending_token_num = 200
-        custom_context.bead_overwrite(new_beads=bead_example, which="START")
-        custom_context.bead_overwrite(new_beads=bead_example, which="END")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FLOWING")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FIXED", fixed=-1)
+        custom_context.bead_update(new_beads=bead_example, which="START")
+        custom_context.bead_update(new_beads=bead_example, which="END")
+        custom_context.bead_update(new_beads=bead_example, which="FLOWING")
+        custom_context.bead_update(new_beads=bead_example, which="FIXED", fixed=-1)
         custom_context.context_extend(piece_list=context_piece_list[:2])
 
         # Action
@@ -350,16 +349,16 @@ class TestContext:
         with pytest.raises(ValueError):
             custom_context.bead_extend(beads=bead_example, which="FIXED")
     
-    def test_bead_overwrite(self, custom_context: Context, bead_example: list[CustomContextPiece]):
+    def test_bead_update(self, custom_context: Context, bead_example: list[CustomContextPiece]):
         # Action
         custom_context.bead_extend(beads = bead_example * 2, which="START")
         custom_context.bead_extend(beads = bead_example * 2, which="FLOWING")
         custom_context.bead_extend(beads = bead_example * 2, which="FIXED", fixed=2)
         custom_context.bead_extend(beads = bead_example * 2, which="END")
-        custom_context.bead_overwrite(new_beads=bead_example, which="START")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FLOWING")
-        custom_context.bead_overwrite(new_beads=bead_example, which="FIXED", fixed=2)
-        custom_context.bead_overwrite(new_beads=bead_example, which="END")
+        custom_context.bead_update(new_beads=bead_example, which="START")
+        custom_context.bead_update(new_beads=bead_example, which="FLOWING")
+        custom_context.bead_update(new_beads=bead_example, which="FIXED", fixed=2)
+        custom_context.bead_update(new_beads=bead_example, which="END")
 
         # Assert
         assert custom_context.bead_content == {
@@ -372,9 +371,9 @@ class TestContext:
         }
 
         with pytest.raises(ValueError):
-            custom_context.bead_overwrite(new_beads=bead_example, which="FIXED")
+            custom_context.bead_update(new_beads=bead_example, which="FIXED")
     
-    def test_bead_update(self, custom_context: Context, bead_example: list[CustomContextPiece]):
+    def test_bead_piece_overwrite(self, custom_context: Context, bead_example: list[CustomContextPiece]):
         # Setup
         new_bead = {
             "role": "system",
@@ -384,8 +383,8 @@ class TestContext:
         # Action
         custom_context.bead_extend(beads = bead_example * 2, which="FLOWING")
         custom_context.bead_extend(beads = bead_example * 2, which="FIXED", fixed=-1)
-        custom_context.bead_update(bead=new_bead, which="FLOWING", index=0)
-        custom_context.bead_update(bead=new_bead, which="FIXED", fixed=-1)
+        custom_context.bead_piece_overwrite(bead=new_bead, which="FLOWING", index=0)
+        custom_context.bead_piece_overwrite(bead=new_bead, which="FIXED", fixed=-1)
 
         # Assert
         assert custom_context.bead_content == {
@@ -416,7 +415,7 @@ class TestContext:
         }
 
         with pytest.raises(ValueError):
-            custom_context.bead_update(bead=new_bead, which="FIXED")
+            custom_context.bead_piece_overwrite(bead=new_bead, which="FIXED")
 
     def test_bead_lengths(self, custom_context: Context, bead_example: list[CustomContextPiece]):
         # Setup

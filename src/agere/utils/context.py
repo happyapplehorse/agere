@@ -17,7 +17,7 @@ from copy import deepcopy
 from typing import Callable, Generic, Literal, TypedDict, overload, cast
 
 from ._context_model_base import ContextModelBase, ContextPiece
-from ._tool_base import ToolsManagerInterface, ToolMetadata
+from ._tool_base import ToolsManagerInterface, ToolMetadata, ToolKit
 from ._exceptions import AgereUtilsError
 
 
@@ -119,7 +119,7 @@ class Context(Generic[ContextPiece]):
     def _bead_content_with_tools(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> BeadContent[ContextPiece]:
         """Get the bead content with the tools taken into consideration."""
         bead_content_copy = deepcopy(self.bead_content)
@@ -131,7 +131,7 @@ class Context(Generic[ContextPiece]):
     def _bead_lengths_with_tools(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> BeadLengthInfo:
         """Get the bead content with the tools taken into consideration."""
         bead_lengths_copy = deepcopy(self.bead_lengths)
@@ -148,7 +148,7 @@ class Context(Generic[ContextPiece]):
     def _tools_bead(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> list[ContextPiece]:
         if self.tools_manager is None or self.tools_manager.tool_model_type != "CUSTOM":
             return []
@@ -227,13 +227,13 @@ class Context(Generic[ContextPiece]):
             self._bead_content[which].extend(beads)
             self._bead_lengths[which].extend([self.token_counter(piece) for piece in beads])
 
-    def bead_overwrite(
+    def bead_update(
         self,
         new_beads: list[ContextPiece],
         which: Literal["START", "FLOWING", "FIXED", "END"],
         fixed: int | str | None = None,
     ) -> None:
-        """Overwrite the contents of a bead.
+        """Update the contents of a bead.
         
         Args:
             new_beads: The new bead contents.
@@ -254,25 +254,25 @@ class Context(Generic[ContextPiece]):
             self._bead_content[which] = new_beads
             self._bead_lengths[which] = [self.token_counter(piece) for piece in new_beads]
 
-    def bead_update(
+    def bead_piece_overwrite(
         self,
         bead: ContextPiece,
         which: Literal["START", "FLOWING", "FIXED", "END"],
         index: int = -1,
         fixed: int | str | None = None,
     ) -> None:
-        """Update the specified piece of the designated bead.
+        """Overwrite the specified piece of the designated bead.
         
         Args:
-            bead: The new bead content to update.
+            bead: The new bead content to overwrite.
             which: Specify the bead type.
-            index: Specify the index of the piece to be updated. Default to -1.
+            index: Specify the index of the piece to be overwriten. Default to -1.
             fixed: Specify the fixed bead position.
 
         Raises:
             ValueError: When which is 'FIXED' but fixed not specified.
             KeyError: When the 'fixed' key dose not exist within the FIXED bead dict.
-            IndexError: When the 'index' is not a valid index.
+            IndexError: When the 'index' is invalid.
         """
         self.validate_piece_type(bead)
         if which == "FIXED":
@@ -291,6 +291,41 @@ class Context(Generic[ContextPiece]):
                 self._bead_lengths[which][index] = self.token_counter(bead)
             except IndexError as e:
                 raise IndexError(f"The index '{index}' is not a valid index for the '{which}' type of bead.") from e
+
+    def bead_piece_delete(
+        self,
+        which: Literal["START", "FLOWING", "FIXED", "END"],
+        index: int,
+        fixed: int | str | None = None,
+    ) -> None:
+        """Remove the specified piece of the designated bead.
+        
+        Args:
+            which: Specify the bead type.
+            index: Specify the index of the piece to be removed.
+            fixed: Specify the fixed bead position.
+        
+        Raises:
+            ValueError: When which is 'FIXED' but fixed not specified.
+            KeyError: When the 'fixed' key dose not exist within the FIXED bead dict.
+            IndexError: When the 'index' is invalid.
+        """
+        if which == "FIXED":
+            try:
+                if fixed is None:
+                    raise ValueError("The 'fixed' can not be None when which equals to 'FIXED'.")
+                del self._bead_content["FIXED"][fixed][index]
+                del self._bead_lengths["FIXED"][fixed][index]
+            except KeyError as e:
+                raise KeyError(f"The key '{fixed}' dose not exist in the 'FIXED' bead dict.") from e
+            except IndexError as e:
+                raise IndexError(f"The index '{index}' is not a valid index for the fixed bead of '{fixed}'.") from e
+        else:
+            try:
+                del self._bead_content[which][index]
+                del self._bead_lengths[which][index]
+            except IndexError as e:
+                raise IndexError(f"The index '{index}' is not a valid index for the bead of '{which}'.") from e
 
     @property
     def bead_lengths(self) -> BeadLengthInfo:
@@ -343,7 +378,7 @@ class Context(Generic[ContextPiece]):
         bead: list[Literal["START", "FLOWING", "FIXED", "END"]] | Literal["ALL"] = "ALL",
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         tools_by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        tools_by_names: list[str] | None = None,
+        tools_by_names: list[str | ToolKit] | None = None,
         max_sending_token_num: int | Literal["inf"] | None = None,
     ) -> float:
         """Give the ratio of the total length of the specified bead and context to the
@@ -406,6 +441,7 @@ class Context(Generic[ContextPiece]):
             self.flowing_bead_position - len(self._context)
             if "FLOWING" in bead else None
         )
+        tool_names_list = cast(list[str | ToolKit], tool_names_list)
         mid_content = self._insert_mid_bead(
             piece_list=self._context if context else [],
             fixed=fixed,
@@ -438,7 +474,7 @@ class Context(Generic[ContextPiece]):
         piece_list: list[ContextPiece],
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         flowing_backward_index: int | None = None,
-        tool_names: list[str] | None = None,
+        tool_names: list[str | ToolKit] | None = None,
         is_lenght: bool = False,
     ) -> list[ContextPiece]: ...
     
@@ -448,7 +484,7 @@ class Context(Generic[ContextPiece]):
         piece_list: list[int],
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         flowing_backward_index: int | None = None,
-        tool_names: list[str] | None = None,
+        tool_names: list[str | ToolKit] | None = None,
         is_lenght: bool = False,
     ) -> list[int]: ...
 
@@ -457,7 +493,7 @@ class Context(Generic[ContextPiece]):
         piece_list: list,
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         flowing_backward_index: int | None = None,
-        tool_names: list[str] | None = None,
+        tool_names: list[str | ToolKit] | None = None,
         is_lenght: bool = False,
     ) -> list:
         if flowing_backward_index is not None and flowing_backward_index > -1:
@@ -539,7 +575,7 @@ class Context(Generic[ContextPiece]):
         bead: list[Literal["START", "FLOWING", "FIXED", "END"]] | Literal["ALL"] = "ALL",
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         tools_by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        tools_by_names: list[str] | None = None,
+        tools_by_names: list[str | ToolKit] | None = None,
         max_sending_token_num: int | Literal["inf"] | None = None,
     ) -> list[ContextPiece]:
         """Give the context content that includes the specified bead, within the range
@@ -685,6 +721,7 @@ class Context(Generic[ContextPiece]):
         if not self.context_model.is_counter_modified:
             return result
         else:
+            tool_names_list = cast(list[str | ToolKit], tool_names_list)
             return self._adjust_for_token_modifier(
                 valid_context_length=valid_context_length,
                 bead=bead,
@@ -701,7 +738,7 @@ class Context(Generic[ContextPiece]):
         bead: list[Literal["START", "FLOWING", "FIXED", "END"]] | Literal["ALL"],
         fixed: list[int | str] | Literal["ALL"],
         flowing_backward_index: int | None,
-        tool_names: list[str],
+        tool_names: list[str | ToolKit],
         max_token_num: int | None = None,
         adjust_bead_position: bool = False,
     ) -> list[ContextPiece]:
@@ -796,7 +833,7 @@ class Context(Generic[ContextPiece]):
         bead: list[Literal["START", "FLOWING", "FIXED", "END"]] | Literal["ALL"] = "ALL",
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         tools_by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        tools_by_names: list[str] | None = None,
+        tools_by_names: list[str | ToolKit] | None = None,
         max_sending_token_num: int | Literal["inf"] | None = None,
     ) -> bool:
         """Add context content.
@@ -855,6 +892,7 @@ class Context(Generic[ContextPiece]):
                 by_names=tools_by_names
             )
         
+        tool_names_list = cast(list[str | ToolKit], tool_names_list)
         minimal_context_token_num = self._get_minimal_context_token_num(
             pieces=[piece],
             bead=bead,
@@ -875,7 +913,7 @@ class Context(Generic[ContextPiece]):
         bead: list[Literal["START", "FLOWING", "FIXED", "END"]] | Literal["ALL"] = "ALL",
         fixed: list[int | str] | Literal["ALL"] = "ALL",
         tools_by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        tools_by_names: list[str] | None = None,
+        tools_by_names: list[str | ToolKit] | None = None,
         max_sending_token_num: int | Literal["inf"] | None = None,
     ) -> bool:
         """Add multiple context contents.
@@ -935,6 +973,7 @@ class Context(Generic[ContextPiece]):
                 by_names=tools_by_names
             )
         
+        tool_names_list = cast(list[str | ToolKit], tool_names_list)
         minimal_context_token_num = self._get_minimal_context_token_num(
             pieces=piece_list,
             bead=bead,
@@ -954,7 +993,7 @@ class Context(Generic[ContextPiece]):
         pieces: list[ContextPiece],
         bead: list[Literal["START", "FLOWING", "FIXED", "END"]] | Literal["ALL"] = "ALL",
         fixed: list[int | str] | Literal["ALL"] = "ALL",
-        tool_names: list[str] | None = None,
+        tool_names: list[str | ToolKit] | None = None,
     ) -> int:
         bead = ["START", "FLOWING", "FIXED", "END"] if bead == "ALL" else bead
         

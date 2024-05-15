@@ -2,11 +2,11 @@ import logging
 from collections.abc import Callable
 from typing import AsyncGenerator, AsyncIterator, Literal
 
-from .._tool_base import ToolModelInterface, ToolMetadata
+from .._tool_base import ProvidedToolModelInterface, ToolMetadata
 from ..dispatcher import async_dispatcher_tools_call_for_openai
 
 
-class OpenaiToolModel(ToolModelInterface):
+class OpenaiToolModel(ProvidedToolModelInterface):
 
     def __init__(
         self,

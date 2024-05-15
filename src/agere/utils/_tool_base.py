@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, AsyncGenerator, Literal
 
@@ -11,8 +11,13 @@ class ParseResponseError(AgereUtilsError):
 
 
 class ToolKit:
-    def __init__(self):
-        self.description: str = ""
+    def __init__(
+        self,
+        name: str = '',
+        description: str = '',
+    ):
+        self.name = name
+        self.description = description
         self.tools: list[Callable] = []
 
     def __iter__(self):
@@ -47,7 +52,7 @@ class ToolModelInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def parse_response(self, source: AsyncIterator) -> Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]:
+    async def parse_response(self, source: AsyncIterator) -> Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]:
         ...
 
 
@@ -91,19 +96,19 @@ class ToolsManagerInterface(metaclass=ABCMeta):
         ...
     
     @abstractmethod
-    def add_tool(self, tool: Callable, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def add_tool(self, tool: Callable | ToolKit, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
         ...
     
     @abstractmethod
-    def add_tools(self, tools: list[Callable], tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def add_tools(self, tools: list[Callable | ToolKit], tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
         ...
     
     @abstractmethod
-    def remove_tool(self, tool: Callable | str, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def remove_tool(self, tool: Callable | str | ToolKit, tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
         ...
     
     @abstractmethod
-    def remove_tools(self, tools: list[Callable | str], tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
+    def remove_tools(self, tools: list[Callable | str | ToolKit], tool_type: Literal["PERMANENT", "TEMPORARY"] = "TEMPORARY") -> None:
         ...
     
     @abstractmethod
@@ -111,15 +116,15 @@ class ToolsManagerInterface(metaclass=ABCMeta):
         ...
     
     @abstractmethod
-    def register_tool(self, tool: Callable) -> None:
+    def register_tool(self, tool: Callable | ToolKit) -> None:
         ...
     
     @abstractmethod
-    def register_tools(self, tools: list[Callable]) -> None:
+    def register_tools(self, tools: list[Callable | ToolKit]) -> None:
         ...
     
     @abstractmethod
-    def unregister_tools(self, tools: list[Callable | str]) -> None:
+    def unregister_tools(self, tools: list[Callable | str | ToolKit]) -> None:
         ...
     
     @abstractmethod
@@ -130,7 +135,8 @@ class ToolsManagerInterface(metaclass=ABCMeta):
     @abstractmethod
     def registered_tool_names(self) -> list[str]:
         ...
-    
+
+    @property
     @abstractmethod
     def all_tools_names(self) -> list[str]:
         ...
@@ -143,19 +149,19 @@ class ToolsManagerInterface(metaclass=ABCMeta):
     def get_tools_metadata(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> list[ToolMetadata]:
         ...
     
     @abstractmethod
-    def get_tools_metadata_by_names(self, names: list[str]) -> list[ToolMetadata]:
+    def get_tools_metadata_by_names(self, names: list[str | ToolKit]) -> list[ToolMetadata]:
         ...
 
     @abstractmethod
     def get_tools_manual(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> Any:
         ...
 
@@ -164,17 +170,17 @@ class ToolsManagerInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def wrap_tools_to_bead(self, tools: list[ToolMetadata | Callable]) -> list:
+    def wrap_tools_to_bead(self, tools: list[ToolMetadata | Callable | ToolKit]) -> list:
         ...
 
     @abstractmethod
     def tools_manual_token_num(
         self,
         by_types: list[Literal["PERMANENT", "TEMPORARY"]] | Literal["ALL"] = "ALL",
-        by_names: list[str] | None = None,
+        by_names: list[str | ToolKit] | None = None,
     ) -> int:
         ...
     
     @abstractmethod
-    async def parse_response(self, response) -> Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]:
+    def parse_response(self, response) -> Coroutine[Any, Any, Callable[[Literal["to_user", "tool_call"]], AsyncGenerator]]:
         ...
