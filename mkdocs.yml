@@ -65,6 +65,9 @@ markdown_extensions:
   - pymdownx.superfences
   - admonition
   - pymdownx.details
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
 nav:
   - Home: index.md
@@ -82,3 +85,4 @@ nav:
     - api/index.md
     - Commander: api/commander.md
     - Utils: api/utils.md
+    - Addons: api/addons.md

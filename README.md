@@ -40,9 +40,23 @@ In constructing workflows, Agere possesses the following features:
 Agere emphasizes universality, operating independently of any tools, specific interfaces, or forms, and is not coupled with any tool. This allows it to invoke any
 tool easily, facilitating smooth collaboration and integration with other tools.
 
+Agere
+  ├───Commander
+  ├───Utils
+  │     ├─── llm_async_converters
+  │     ├─── dispacher
+  │     ├─── prompt_template
+  │     ├─── context
+  │     ├─── tool
+  │     └─── ...
+  └───Addons
+        ├─── qdrant_vector
+        ├─── text_splitter
+        └─── ...
+
 # Installation
 Agere has no third-party dependencies.
-```shell
+```bash
 pip install agere
 ```
 
@@ -50,7 +64,7 @@ pip install agere
 Define Jobs and/or handlers **➔** Create a commander to run them
 
 [Getting started](https://happyapplehorse.github.io/agere/getting_started/)  
-[Guide](https://happyapplehorse.github.io/agere/guide/framework/) 
+[Guide](https://happyapplehorse.github.io/agere/guide/framework/)  
 🎬[Tutorial-zh](https://www.bilibili.com/video/BV1q6421c71z) 
 
 ## Agere Workflow Demonstration Example
