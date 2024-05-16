@@ -13,19 +13,25 @@ requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dynamic = ["version"]
 classifiers = [
-    'Development Status :: 3 - Alpha',
-    'Intended Audience :: Developers',
-    'Topic :: Software Development',
-    'Topic :: Scientific/Engineering :: Artificial Intelligence',
-    'Topic :: Software Development :: Libraries',
-    'Topic :: Software Development :: Libraries :: Python Modules',
-    'Topic :: Utilities',
-    'Programming Language :: Python :: 3',
-    'License :: OSI Approved :: MIT License',
-    'Operating System :: OS Independent',
+  'Development Status :: 3 - Alpha',
+  'Intended Audience :: Developers',
+  'Topic :: Software Development',
+  'Topic :: Scientific/Engineering :: Artificial Intelligence',
+  'Topic :: Software Development :: Libraries',
+  'Topic :: Software Development :: Libraries :: Python Modules',
+  'Topic :: Utilities',
+  'Programming Language :: Python :: 3',
+  'License :: OSI Approved :: MIT License',
+  'Operating System :: OS Independent',
 ]
 keywords = ["agents", "AI"]
 dependencies = []
+
+[project.optional-dependencies]
+addons = [
+  'qdrant-client>=1.9.1,<2',
+  'fastembed>=0.2.7,<1',
+]
 
 [project.urls]
 Homepage = "https://github.com/happyapplehorse/agere"

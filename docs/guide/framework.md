@@ -55,8 +55,8 @@ in the subsequent iteration.)
 - **parse_stream_response** (handler): Responsible for actually collecting and processing reply information.
   There are two scenarios:
 
-    - The role has nothing to say, no need to process.
-    - The role has something to say, then checks with GroupTalkManager whether someone is currently speaking.
+    * The role has nothing to say, no need to process.
+    * The role has something to say, then checks with GroupTalkManager whether someone is currently speaking.
       If someone is speaking, it denies the role's request and informs them who is speaking.
       If no one is speaking, it allows the role's request, changes the GroupTalkManager's speaking attribute to that role,
       and finally submits the role's reply object as a new TalkToAll Job.
