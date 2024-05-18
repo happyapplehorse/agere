@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from itertools import cycle
 from logging import Logger
@@ -85,6 +86,11 @@ class AsyncQdrantVector:
         )[0]
 
     def split(self, text: str) -> Iterable[str]:
+        """Split the text.
+        
+        When specified a splitter, it will use that splitter to split the text,
+        otherwise, return the original text as a list.
+        """
         if self.text_splitter is None:
             return [text]
         return self.text_splitter.split(text)
@@ -101,16 +107,17 @@ class AsyncQdrantVector:
     async def create_collection(
         self,
         collection_name: str,
-        vector_size: int | None = None,
-        distance: Distance | None = None,
+        vectors_config: types.VectorParams | Mapping[str, types.VectorParams] | None = None,
+        sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
         init_from_collection_name: str | None = None,
+        **kwargs,
     ) -> bool:
         """Creates empty collection with given parameters.
 
         Arguments:
             collection_name: The name of the collection to create.
-            vector_size: The size of the vector.
-            distance: The distance metric to use. (default: {"Cosine"})
+            vectors_config: Specify vectors config. Left to be None if using fastembed.
+            sparse_vectors_config: Specify the sparse vectors config.
             init_from_collection_name: Use data stored in another collection to initialize this collection.
 
         Returns:
@@ -118,41 +125,36 @@ class AsyncQdrantVector:
         """
         return await self.async_qdrant_client.create_collection(
             collection_name=collection_name,
-            vectors_config=models.VectorParams(
-                size=vector_size or self.default_vector_size,
-                distance=distance or self._get_fastembed_model_params(
-                    model_name=self.async_qdrant_client.embedding_model_name
-                )[1],
-            ),
+            vectors_config=vectors_config or self.async_qdrant_client.get_fastembed_vector_params(),
+            sparse_vectors_config=sparse_vectors_config,
             init_from=models.InitFrom(
                 collection=init_from_collection_name
             ) if init_from_collection_name is not None else None,
+            **kwargs
         )
 
     async def recreate_collection(
         self,
         collection_name: str,
-        vector_size: int | None = None,
-        distance: Distance | None = None,
+        vectors_config: types.VectorParams | Mapping[str, types.VectorParams] | None = None,
+        sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
+        **kwargs,
     ) -> bool:
         """Delete and create empty collection with given parameters.
 
         Arguments:
             collection_name: The name of the collection to create.
-            vector_size: The size of the vector.
-            distance: The distance metric to use. (default: {"Cosine"})
+            vectors_config: Specify vectors config. Left to be None if using fastembed.
+            sparse_vectors_config: Specify the sparse vectors config.
 
         Returns:
             Operation result.
         """
         return await self.async_qdrant_client.recreate_collection(
             collection_name=collection_name,
-            vectors_config=models.VectorParams(
-                size=vector_size or self.default_vector_size,
-                distance=distance or self._get_fastembed_model_params(
-                    model_name=self.async_qdrant_client.embedding_model_name
-                )[1],
-            ),
+            vectors_config=vectors_config or self.async_qdrant_client.get_fastembed_vector_params(),
+            sparse_vectors_config=sparse_vectors_config,
+            **kwargs
         )
 
     async def get_collection(self, collection_name: str) -> types.CollectionInfo:
@@ -173,6 +175,7 @@ class AsyncQdrantVector:
         await self.async_qdrant_client.delete_collection(collection_name=collection_name)
 
     async def update_collection(self, collection_name: str, **kwargs):
+        """Update parameters of the collection."""
         await self.async_qdrant_client.update_collection(collection_name=collection_name, **kwargs)
 
     async def get_all_collections(
@@ -197,6 +200,7 @@ class AsyncQdrantVector:
         return await self.async_qdrant_client.collection_exists(collection_name=collection_name)
    
     async def get_collection_info(self, collection_name: str) -> types.CollectionInfo:
+        """Get the collection information."""
         return await self.async_qdrant_client.get_collection(collection_name=collection_name)
 
     async def add(
@@ -273,7 +277,7 @@ class AsyncQdrantVector:
                 "name": next(names_),
                 "category": next(categories_),
                 "kind": next(kinds_),
-                "created_datatime": next(created_datetimes_),
+                "created_datetime": next(created_datetimes_),
                 "updated_datetime": next(updated_datetimes_),
                 **next(metadata_)
             } for _ in documents
@@ -395,6 +399,7 @@ class AsyncQdrantVector:
             return result
 
     async def delete(self, collection_name: str, filter: Filter) -> None:
+        """Delete the records selected by the filter."""
         await self.async_qdrant_client.delete(
             collection_name=collection_name,
             points_selector=models.FilterSelector(filter=filter)
@@ -478,41 +483,63 @@ class AsyncQdrantVector:
         updated_datetime_range: tuple[datetime | None, datetime | None] = (None, None,),
         document_texts: list[str] | None = None,
     ) -> Filter:
+        """Generate the corresponding filter based no the conditions.
         
+        Within each option, the logic is 'OR', and between multiple options, the
+        logic is 'AND'.
+
+        Args:
+            names: Filter by name.
+            categories: Filter by category.
+            kinds: Filter by kind.
+            created_datetime_range:
+                Filter by creation time, which is a tuple with the first time as the start time
+                and the second time as the end time.
+            updated_datetime_range:
+                Filter by modification time, which is a tuple with the first time as the start
+                time and the second time as the end time.
+            document_texts:
+                Filter by text content.
+                Note that when there are multiple text contents, it means the entries that match
+                must contain all these text contents simultaneously.
+        
+        Returns:
+            The filter.
+        """        
         name_condition = models.FieldCondition(
             key="name", match=models.MatchAny(any=names),
         ) if names else models.FieldCondition(
-            key="name", match=models.MatchExcept(**{"except": []})
+            key="name", match=models.MatchExcept(**{"except": []}),
         )
 
         category_condition = models.FieldCondition(
             key="category", match=models.MatchAny(any=categories),
         ) if categories else models.FieldCondition(
-            key="category", match=models.MatchExcept(**{"except": []})
+            key="category", match=models.MatchExcept(**{"except": []}),
         )
 
         kind_condition = models.FieldCondition(
             key="kind", match=models.MatchAny(any=kinds),
         ) if kinds else models.FieldCondition(
-            key="kind", match=models.MatchExcept(**{"except": []})
+            key="kind", match=models.MatchExcept(**{"except": []}),
         )
 
-        created_datatime_range_condition = models.FieldCondition(
+        created_datetime_range_condition = models.FieldCondition(
             key="created_datetime", range=models.DatetimeRange(
                 gt=None,
                 gte=created_datetime_range[0],
                 lt=None,
                 lte=created_datetime_range[1],
-            )
+            ),
         )
 
-        updated_datatime_range_condition = models.FieldCondition(
+        updated_datetime_range_condition = models.FieldCondition(
             key="updated_datetime", range=models.DatetimeRange(
                 gt=None,
                 gte=updated_datetime_range[0],
                 lt=None,
                 lte=updated_datetime_range[1],
-            )
+            ),
         )
 
         document_text_condition = models.Filter(
@@ -532,8 +559,8 @@ class AsyncQdrantVector:
                 name_condition,
                 category_condition,
                 kind_condition,
-                created_datatime_range_condition,
-                updated_datatime_range_condition,
+                created_datetime_range_condition,
+                updated_datetime_range_condition,
                 document_text_condition,
             ],
         )

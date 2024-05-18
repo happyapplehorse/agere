@@ -83,6 +83,17 @@ nav:
     - callbacks: guide/callback.md
   - API:
     - api/index.md
-    - Commander: api/commander.md
-    - Utils: api/utils.md
-    - Addons: api/addons.md
+    - Commander:
+      - api/commander/index.md
+      - api/commander/commander.md
+    - Utils:
+      - api/utils/index.md
+      - prompt_template: api/utils/prompt_template.md
+      - context: api/utils/context.md
+      - tool: api/utils/tool.md
+      - llm_async_converters: api/utils/llm_async_converters.md
+      - dispatcher: api/utils/dispatcher.md
+    - Addons:
+      - api/addons/index.md
+      - qdrant_vector: api/addons/qdrant_vector.md
+      - text_splitter: api/addons/text_splitter.md

@@ -1,16 +1,12 @@
 import re
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 
 from .qdrant_vector import _import_fastembed
 from ._text_splitter_base import TextSplitterInterface
 
 
-if TYPE_CHECKING:
-    import numpy as np
-
-
 class SemanticTextSplitter(TextSplitterInterface):
-    def __init__(self, max_sentences: int, semantic: bool = True, semantic_threshold: float = 0.9):
+    def __init__(self, max_sentences: int, semantic: bool = True, semantic_threshold: float = 0.8):
         _import_fastembed()
         from fastembed import TextEmbedding
         self.embedding_model = TextEmbedding()
@@ -28,14 +24,14 @@ class SemanticTextSplitter(TextSplitterInterface):
             return (chunk for chunk in self.split_by_sentence(text, self.max_sentences))
 
     def split_by_sentence(self, text: str, max_sentences: int) -> Iterable[str]:
-        sentences = re.split(r'(?<=[。！？\.!?])\s*', text)
-        sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+        sentences = re.split(r'(?<=[。！？\.!?])', text)
+        sentences = [sentence for sentence in sentences if sentence.strip()]
 
         for i in range(0, len(sentences), max_sentences):
-            chunk = ''.join(sentences[i:i+max_sentences])
-            yield chunk
+            chunk = ''.join(sentences[i : i + max_sentences])
+            yield chunk.strip()
 
-    def _get_embeddings(self, texts: str | list[str]) -> Iterable[np.ndarray]:
+    def _get_embeddings(self, texts: str | list[str]):
         return self.embedding_model.embed(texts)
 
     def _cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
@@ -51,7 +47,8 @@ class SemanticTextSplitter(TextSplitterInterface):
     def split_by_semantic(self, text: str) -> Iterable[str]:
         single_sentences = self.split_by_sentence(text, 1)
         sentences = [{'sentence': x, 'index': i} for i, x in enumerate(single_sentences)]
-        
+        self._combine_sentences(sentences)
+
         embeddings = list(self._get_embeddings([x['combined_sentence'] for x in sentences]))
         for i, sentence in enumerate(sentences):
             sentence['combined_sentence_embedding'] = embeddings[i]
@@ -59,7 +56,7 @@ class SemanticTextSplitter(TextSplitterInterface):
         
         breakpoint_distance_threshold = self._calculate_distance_threshold(distances, self.semantic_threshold)
         indices_above_thresh = [i for i, x in enumerate(distances) if x > breakpoint_distance_threshold]
-        
+
         start_index = 0
         # Iterate through the breakpoints to slice the sentences
         for index in indices_above_thresh:

@@ -288,15 +288,24 @@ class TestTool:
         self,
         custom_tools_manager: ToolsManagerInterface,
         tool_function_example,
+        tool_method_example,
+        tool_kit_example,
     ):
         # Setup
         custom_tools_manager.add_tool(tool_function_example)
+        custom_tools_manager.add_tool(tool_method_example, "PERMANENT")
+        custom_tools_manager.register_tool(tool_kit_example)
 
         # Action
         callable_tool = custom_tools_manager.get_linked_tool("tool_function_example")
+        callable_method_example = custom_tools_manager.get_linked_tool("tool_method_example")
+        callable_say_hello_example = custom_tools_manager.get_linked_tool("tool_say_hello_example")
 
         # Assert
         assert callable_tool(2) == 2
+        assert callable_method_example(2, 5) == 7
+        assert callable_say_hello_example.__name__ == "tool_say_hello_example"
+        assert callable_say_hello_example("agere") == "Hi, agere!"
 
     def test_wrap_tools_to_bead(
         self,
@@ -323,6 +332,13 @@ class TestTool:
         assert tool_bead_piece.get("role") == "system"
         with pytest.raises(AssertionError):
             openai_tools_manager.wrap_tools_to_bead(tools=[tool_function_example])
+
+        # Action
+        bead = custom_tools_manager.wrap_tools_to_bead(tools=[tool_function_example, tool_kit_example])
+
+        # Assert
+        assert "tool_function_example" in bead[0]["content"]
+        assert "tool_say_goodbye_example" in bead[0]["content"]
 
     def test_tools_manual_token_num(
         self,

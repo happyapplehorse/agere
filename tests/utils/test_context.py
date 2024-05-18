@@ -1,3 +1,4 @@
+import copy
 import pytest
 from typing import TypedDict
 
@@ -81,6 +82,7 @@ class TestContext:
         return len(context_piece_list) + total_sum
 
     class CustomContextModel(ContextModelBase):
+        @property
         def context_model_name(self) -> str:
             return "CUSTOM"
 
@@ -461,6 +463,12 @@ class TestContext:
 
         with pytest.raises(ValueError):
             custom_context.bead_piece_overwrite(bead=new_bead, which="FIXED")
+        with pytest.raises(KeyError):
+            custom_context.bead_piece_overwrite(bead=new_bead, which="FIXED", fixed=-2)
+        with pytest.raises(IndexError):
+            custom_context.bead_piece_overwrite(bead=new_bead, which="FIXED", fixed=-1, index=2)
+        with pytest.raises(IndexError):
+            custom_context.bead_piece_overwrite(bead=new_bead, which="START", index=0)
 
     def test_bead_lengths(self, custom_context: Context, bead_example: list[CustomContextPiece]):
         # Setup
@@ -763,3 +771,30 @@ class TestContext:
             + flowing_beads[-2:]
             + end_beads
         )
+
+    def test_bead_piece_delete(
+        self,
+        custom_context: Context,
+        flowing_beads,
+        fixed_beads,
+        end_beads,
+    ):
+        # Setup
+        custom_context.bead_update(new_beads=flowing_beads, which="FLOWING")
+        custom_context.bead_update(new_beads=fixed_beads, which="FIXED", fixed="20%")
+        custom_context.bead_update(new_beads=end_beads, which="END")
+        flowing_beads_copy = copy.copy(flowing_beads)
+
+        # Action
+        custom_context.bead_piece_delete(which="FLOWING", index=0)
+        custom_context.bead_piece_delete(which="FIXED", fixed="20%", index=0)
+
+        # Assert
+        assert custom_context.bead_content["FLOWING"] == flowing_beads_copy[1:]
+        assert custom_context.bead_content["FIXED"]["20%"] == []
+        with pytest.raises(KeyError):
+            custom_context.bead_piece_delete(which="FIXED", fixed=-1, index=0)
+        with pytest.raises(IndexError):
+            custom_context.bead_piece_delete(which="FIXED", fixed="20%", index=0)
+        with pytest.raises(IndexError):
+            custom_context.bead_piece_delete(which="END", index=3)
