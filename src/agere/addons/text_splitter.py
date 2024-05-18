@@ -6,7 +6,28 @@ from ._text_splitter_base import TextSplitterInterface
 
 
 class SemanticTextSplitter(TextSplitterInterface):
+    """
+    A class that splits text into smaller pieces based on semantic similarity and sentence count.
+
+    Attributes:
+        max_sentences (int): The maximum number of sentences per chunk.
+        semantic (bool): A flag indicating whether to use semantic splitting.
+        semantic_threshold (float): The threshold for cosine similarity to determine splitting points.
+        embedding_model (TextEmbedding): The model used for generating text embeddings.
+    """
     def __init__(self, max_sentences: int, semantic: bool = True, semantic_threshold: float = 0.8):
+        """
+        Initialize the SemanticTextSplitter with the given parameters.
+
+        Args:
+            max_sentences (int): The maximum number of sentences per chunk.
+            semantic (bool, optional): Whether to use semantic splitting. Defaults to True.
+            semantic_threshold (float, optional):
+                Threshold for cosine similarity to determine splitting points. Defaults to 0.8.
+        
+        Raises:
+            ValueError: If 'semantic_threshold' is not between 0 and 1.
+        """
         _import_fastembed()
         from fastembed import TextEmbedding
         self.embedding_model = TextEmbedding()
@@ -17,6 +38,15 @@ class SemanticTextSplitter(TextSplitterInterface):
             raise ValueError("'semantic_threshold' must be between 0 and 1.")
 
     def split(self, text: str) -> Iterable[str]:
+        """
+        Split the text into chunks based on semantic similarity or sentence count.
+
+        Args:
+            text (str): The text to split.
+
+        Returns:
+            Iterable[str]: The chunks of text.
+        """
         semantic_pieces = self.split_by_semantic(text)
         if self.semantic is True:
             return (chunk for piece in semantic_pieces for chunk in self.split_by_sentence(piece, self.max_sentences))
@@ -24,6 +54,16 @@ class SemanticTextSplitter(TextSplitterInterface):
             return (chunk for chunk in self.split_by_sentence(text, self.max_sentences))
 
     def split_by_sentence(self, text: str, max_sentences: int) -> Iterable[str]:
+        """
+        Split the text into chunks based on the number of sentences.
+
+        Args:
+            text (str): The text to split.
+            max_sentences (int): The maximum number of sentences per chunk.
+
+        Returns:
+            Iterable[str]: The chunks of text.
+        """
         sentences = re.split(r'(?<=[。！？\.!?])', text)
         sentences = [sentence for sentence in sentences if sentence.strip()]
 
@@ -45,6 +85,15 @@ class SemanticTextSplitter(TextSplitterInterface):
             return dot_product / (magnitude_vec1 * magnitude_vec2)
     
     def split_by_semantic(self, text: str) -> Iterable[str]:
+        """
+        Split the text into chunks based on semantic similarity.
+
+        Args:
+            text (str): The text to split.
+
+        Returns:
+            Iterable[str]: The chunks of text.
+        """
         single_sentences = self.split_by_sentence(text, 1)
         sentences = [{'sentence': x, 'index': i} for i, x in enumerate(single_sentences)]
         self._combine_sentences(sentences)
