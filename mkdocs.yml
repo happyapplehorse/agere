@@ -28,7 +28,6 @@ theme:
     - navigation.tabs
     - navigation.tracking
     - navigation.path
-    - navigation.sections
     - navigation.top
     - navigation.footer
     - navigation.indexes

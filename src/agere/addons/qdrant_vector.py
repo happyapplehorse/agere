@@ -12,15 +12,15 @@ from typing import (
 )
 try:
     from qdrant_client import AsyncQdrantClient, models
-except ImportError:
-    _QDRANT_CLIENT_INSTALLED = False
+except ImportError:  # pragma: no cover
+    _QDRANT_CLIENT_INSTALLED = False  # pragma: no cover
 else:
     _QDRANT_CLIENT_INSTALLED = True
 
 try:
     import fastembed
-except ImportError:
-    _FASTEMBED_INSTALLED = False
+except ImportError:  # pragma: no cover
+    _FASTEMBED_INSTALLED = False  # pragma: no cover
 else:
     _FASTEMBED_INSTALLED = True
 
@@ -29,9 +29,9 @@ from ..commander._null_logger import get_null_logger
 
 
 if TYPE_CHECKING:
-    from qdrant_client.models import Distance, ExtendedPointId, Filter
-    from qdrant_client.conversions import common_types as types
-    from qdrant_client.fastembed_common import QueryResponse
+    from qdrant_client.models import Distance, ExtendedPointId, Filter  # pragma: no cover
+    from qdrant_client.conversions import common_types as types  # pragma: no cover
+    from qdrant_client.fastembed_common import QueryResponse  # pragma: no cover
 
 
 def _import_fastembed() -> None:

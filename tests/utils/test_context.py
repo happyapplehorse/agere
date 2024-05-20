@@ -798,3 +798,12 @@ class TestContext:
             custom_context.bead_piece_delete(which="FIXED", fixed="20%", index=0)
         with pytest.raises(IndexError):
             custom_context.bead_piece_delete(which="END", index=3)
+
+    def test_context_model_name(
+        self,
+        custom_context: Context,
+        openai_context: Context
+    ):
+        # Assert
+        assert custom_context.context_model.context_model_name == "CUSTOM"
+        assert openai_context.context_model.context_model_name == "OPENAI"

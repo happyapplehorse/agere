@@ -156,8 +156,11 @@ async def async_dispatcher_tools_call_for_openai(
             if to_user_key_start == -1:
                 continue # Do not find the "to_user" key, continue to receive the next chunk.
             # In 'to_user' param:
-            before_to_user_content = buffer[: to_user_key_start]
-            to_user_content_start = buffer.find('"', find_to_user_content_start_position or to_user_key_start+len(to_user_flag)+3)
+            before_to_user_content = buffer[:to_user_key_start]
+            to_user_content_start = buffer.find(
+                '"',
+                find_to_user_content_start_position or to_user_key_start + len(to_user_flag) + 3,
+            )
             if to_user_content_start != -1 and buffer[to_user_content_start - 1] != '\\':
                 # In the dictionary, the double quotes representing key-value are regular double quotes '"',
                 # while double quotes inside strings are escaped double quotes '\"'.
@@ -170,11 +173,11 @@ async def async_dispatcher_tools_call_for_openai(
                     # Content of to_user finish.
                     to_user_end_active = True
                 await do_check_to_user_end()
-            elif to_user_content_start != -1:
+            elif to_user_content_start != -1:  # pragma: no cover
                 # Under normal circumstances, the code would not execute to this point.
                 # This branch is used to handle the exceptional case
                 # where the string content of the 'to_user' is not immediately followed after '"to_user":'
-                find_to_user_content_start_position = to_user_content_start
+                find_to_user_content_start_position = to_user_content_start  # pragma: no cover
 
     role_queue_dict = {"to_user": to_user_queue, "tool_call": function_call_queue}
     

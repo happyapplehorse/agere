@@ -145,7 +145,32 @@ response = [
                             index=0,
                             id=None,
                             function=ChoiceDeltaToolCallFunction(
-                                arguments='": "I am search \\"weather\\" for you.", "location": "Par',
+                                arguments='": "I am search \\"weather',
+                                name=None
+                            ),
+                            type=None
+                        )
+                    ]
+                ),
+                finish_reason=None,
+                index=0
+            )
+        ],
+    ),
+    ChatCompletionChunk(
+        id='chatcmpl-8Rz2q1FonSqzWAexwcszkWHyQoMgH',
+        choices=[
+            Choice(
+                delta=ChoiceDelta(
+                    content=None,
+                    function_call=None,
+                    role=None,
+                    tool_calls=[
+                        ChoiceDeltaToolCall(
+                            index=0,
+                            id=None,
+                            function=ChoiceDeltaToolCallFunction(
+                                arguments='\\" for you.", "location": "Par',
                                 name=None
                             ),
                             type=None
