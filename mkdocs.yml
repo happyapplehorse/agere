@@ -80,6 +80,7 @@ nav:
     - Job: guide/job.md
     - handler: guide/handler.md
     - callbacks: guide/callback.md
+    - node-edge pattern: guide/node_edge.md
   - API:
     - api/index.md
     - Commander:

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Added support for node-edge pattern.
 - Added utils.prompt_template to manage prompt template.
 - Added utils.context to manage context.
 - Added utils.tools to manage tools.

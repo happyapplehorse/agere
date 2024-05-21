@@ -163,3 +163,4 @@ def add_conditional_edge(
         },
     )
 ```
+For details, please refer to [node-edge pattern](./node_edge.md).
