@@ -66,6 +66,7 @@ def outer_function():
         pass
     return nested_function
 
+
 class TClass:
     @staticmethod
     def static_method():
@@ -77,6 +78,7 @@ class TClass:
     
     def instance_method(self):
         pass
+
 
 def test_is_first_param_bound():
     # Setup

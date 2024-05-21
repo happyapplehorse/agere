@@ -50,6 +50,7 @@ class TaskNode:
         self._children: list = [self]
         self._callback: Callback | None = None
         self._state: Literal["PENDING", "ACTIVE", "TERMINATED", "EXCEPTION", "COMPLETED"] = "PENDING"
+        self.data: Any = None
     
     def add_child(self, child: TaskNode) -> None:
         """Add a tasknode as child of this tasknode."""
@@ -722,6 +723,8 @@ class HandlerCoroutine(TaskNode, Generic[H]):
         self._callback: Callback | None = None
         self.result = None
         self.exception: Exception | None = None
+        self.reusable: bool = False
+        self._constructor: dict = {}
 
     async def _do_at_done(self):
         """This method is automatically called when the handler is completed.
@@ -738,7 +741,16 @@ class HandlerCoroutine(TaskNode, Generic[H]):
             await self.commander._handle_callback(callback=self._callback, which="at_handler_start", task_node=self)
 
         assert self.coro is not None
-        coro = cast(Coroutine, self.coro)
+
+        if self.reusable is True:
+            coro_func = self._constructor["coro_func"]
+            args = self._constructor["args"]
+            kwargs = self._constructor["kwargs"]
+            coro = coro_func(*args, **kwargs)
+        else:
+            coro = self.coro
+        coro = cast(Coroutine, coro)
+
         try:
             result = await coro
         except Exception as e:
@@ -906,6 +918,11 @@ def handler(password: str):
         def wrap_function(*args: P.args, **kwargs: P.kwargs) -> HandlerCoroutine[R]:
             handler_coroutine = HandlerCoroutine()
             if _is_first_param_bound(coro_func):
+                handler_coroutine._constructor = {
+                    "coro_func": coro_func,
+                    "args": (args[0], handler_coroutine, *args[1:]),
+                    "kwargs": kwargs,
+                }
                 coro = coro_func(args[0], handler_coroutine, *args[1:], **kwargs)
                 for arg in args:
                     if isinstance(arg, Callback):
@@ -922,6 +939,11 @@ def handler(password: str):
                             handler_coroutine._callback.update(value)
                         value._task_node = handler_coroutine
             else:
+                handler_coroutine._constructor = {
+                    "coro_func": coro_func,
+                    "args": (handler_coroutine, *args),
+                    "kwargs": kwargs,
+                }
                 coro = coro_func(handler_coroutine, *args, **kwargs)
                 for arg in args:
                     if isinstance(arg, Callback):
@@ -1165,7 +1187,7 @@ class Job(TaskNode, metaclass=ABCMeta):
         self.exception: Exception | None = None
 
     @abstractmethod
-    async def task(self) -> HandlerCoroutine | None:
+    async def task(self) -> HandlerCoroutine | Any:
         """The task of the job.
 
         Every job must have a specific task assigned.
@@ -1262,9 +1284,6 @@ class ComEnd(Job):
     
     Put a empty Job to prevent the commander from waiting indefinitely for a job that will never arrive.
     """
-    def __init__(self):
-        super().__init__()
-    
     @tasker(PASS_WORD)
     async def task(self) -> None:
         pass

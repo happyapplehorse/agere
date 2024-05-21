@@ -6,6 +6,7 @@ from ._commander import (
     handler,
     Callback,
     Job,
+    HandlerCoroutine,
     BasicJob,
     CallbackDict,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "handler",
     "Callback",
     "Job",
+    "HandlerCoroutine",
     "BasicJob",
     "AttributeNotSetError",
     "NotHandlerError",
