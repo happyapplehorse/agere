@@ -74,18 +74,19 @@ nav:
     - Introduction: introduction.md
     - Getting started: getting_started.md
   - Guide:
-    - guide/framework.md
-    - TaskNode: guide/tasknode.md
-    - Commander: guide/commander.md
-    - Job: guide/job.md
-    - handler: guide/handler.md
-    - callbacks: guide/callback.md
-    - node-edge pattern: guide/node_edge.md
+    - guide/commander/framework.md
+    - TaskNode: guide/commander/tasknode.md
+    - Commander: guide/commander/commander.md
+    - Job: guide/commander/job.md
+    - handler: guide/commander/handler.md
+    - callbacks: guide/commander/callback.md
+    - node-edge pattern: guide/commander/node_edge.md
   - API:
     - api/index.md
     - Commander:
       - api/commander/index.md
       - api/commander/commander.md
+      - api/commander/node_edge.md
     - Utils:
       - api/utils/index.md
       - prompt_template: api/utils/prompt_template.md

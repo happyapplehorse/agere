@@ -41,6 +41,10 @@ Agere emphasizes universality, operating independently of any tools, specific in
 tool easily, facilitating smooth collaboration and integration with other tools.
 
 The structure of agere is as follows:
+<p align="center">
+  <img src="https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_hierarchical_structure.png" width="600" alt="Agere Hierarchical Structure">
+</p>
+
 ```
 Agere  
   ├─── Commander(core functionality)
