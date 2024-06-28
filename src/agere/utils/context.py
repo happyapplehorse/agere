@@ -338,12 +338,15 @@ class Context(Generic[ContextPiece]):
         Note: This value may change when obtaining the context_sending.
         """
         assert self._flowing_bead_position >= 0
+
         if self._flowing_bead_position >= 0:
-            return self._flowing_bead_position
+            position = min(self._flowing_bead_position, len(self._context))
         elif self._flowing_bead_position >= -len(self._context):
-            return self._flowing_bead_position + len(self._context)
+            position = self._flowing_bead_position + len(self._context)
         else:
-            assert False
+            position = 0
+        self._flowing_bead_position = position
+        return position
 
     @property
     def fixed_bead_positions(self) -> list:

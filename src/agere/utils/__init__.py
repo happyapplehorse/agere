@@ -19,6 +19,7 @@ from .tool import (
     ToolsManager,
 )
 from ._exceptions import AgereUtilsError
+from ._context_model_base import ContextModelBase
 from ._tool_base import (
     ParseResponseError,
     ToolMetadata,
@@ -32,6 +33,7 @@ from ._tool_base import (
 
 __all__ = [
     "AgereUtilsError",
+    "ContextModelBase",
     "ContextTokenError",
     "ContextPieceTypeError",
     "ParseResponseError",
