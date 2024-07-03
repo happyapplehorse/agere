@@ -26,6 +26,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel setuptools
         pip install pytest pytest-cov pytest-asyncio
+        if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Execute test
       run: pytest --cov=./src/agere --cov-report=xml
@@ -34,3 +35,4 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         files: ./coverage.xml
+        token: ${{ secrets.CODECOV_TOKEN }}

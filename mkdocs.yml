@@ -28,7 +28,6 @@ theme:
     - navigation.tabs
     - navigation.tracking
     - navigation.path
-    - navigation.sections
     - navigation.top
     - navigation.footer
     - navigation.indexes
@@ -65,6 +64,9 @@ markdown_extensions:
   - pymdownx.superfences
   - admonition
   - pymdownx.details
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
 nav:
   - Home: index.md
@@ -72,13 +74,27 @@ nav:
     - Introduction: introduction.md
     - Getting started: getting_started.md
   - Guide:
-    - guide/framework.md
-    - TaskNode: guide/tasknode.md
-    - Commander: guide/commander.md
-    - Job: guide/job.md
-    - handler: guide/handler.md
-    - callbacks: guide/callback.md
+    - guide/commander/framework.md
+    - TaskNode: guide/commander/tasknode.md
+    - Commander: guide/commander/commander.md
+    - Job: guide/commander/job.md
+    - handler: guide/commander/handler.md
+    - callbacks: guide/commander/callback.md
+    - node-edge pattern: guide/commander/node_edge.md
   - API:
     - api/index.md
-    - Commander: api/commander.md
-    - Utils: api/utils.md
+    - Commander:
+      - api/commander/index.md
+      - api/commander/commander.md
+      - api/commander/node_edge.md
+    - Utils:
+      - api/utils/index.md
+      - prompt_template: api/utils/prompt_template.md
+      - context: api/utils/context.md
+      - tool: api/utils/tool.md
+      - llm_async_converters: api/utils/llm_async_converters.md
+      - dispatcher: api/utils/dispatcher.md
+    - Addons:
+      - api/addons/index.md
+      - qdrant_vector: api/addons/qdrant_vector.md
+      - text_splitter: api/addons/text_splitter.md

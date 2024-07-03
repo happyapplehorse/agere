@@ -66,6 +66,7 @@ def outer_function():
         pass
     return nested_function
 
+
 class TClass:
     @staticmethod
     def static_method():
@@ -77,6 +78,7 @@ class TClass:
     
     def instance_method(self):
         pass
+
 
 def test_is_first_param_bound():
     # Setup
@@ -215,7 +217,7 @@ def test_commander_is_empty(commander, job_add):
     assert commander.is_empty()
 
 
-async def test_callback_handle(commander: CommanderAsync):
+async def test_handle_callback(commander: CommanderAsync):
     # Setup
     mock_callback = Mock()
     mock_task_node = Mock()
@@ -248,10 +250,10 @@ async def test_callback_handle(commander: CommanderAsync):
 
     # Assert
     with pytest.raises(ValueError):
-        await commander._callback_handle(callback=mock_callback, which="error_callback_type")
+        await commander._handle_callback(callback=mock_callback, which="error_callback_type")  # type: ignore
     
     # Action
-    await commander._callback_handle(callback=mock_callback, which="at_job_end")
+    await commander._handle_callback(callback=mock_callback, which="at_job_end")
     
     # Assert
     assert not mock_fn_1.called
@@ -264,7 +266,7 @@ async def test_callback_handle(commander: CommanderAsync):
     assert not mock_fn_8.called
 
     # Action
-    await commander._callback_handle(callback=mock_callback, which="at_job_start")
+    await commander._handle_callback(callback=mock_callback, which="at_job_start")
 
     # Assert
     mock_fn_1.assert_called_once_with(1, 2, key="value", task_node=mock_task_node)

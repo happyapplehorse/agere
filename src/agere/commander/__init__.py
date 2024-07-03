@@ -6,6 +6,7 @@ from ._commander import (
     handler,
     Callback,
     Job,
+    HandlerCoroutine,
     BasicJob,
     CallbackDict,
 )
@@ -17,6 +18,7 @@ from ._exceptions import (
     CommanderAlreadyRunningError,
 )
 
+
 __all__ = [
     "PASS_WORD",
     "CommanderAsyncInterface",
@@ -25,6 +27,7 @@ __all__ = [
     "handler",
     "Callback",
     "Job",
+    "HandlerCoroutine",
     "BasicJob",
     "AttributeNotSetError",
     "NotHandlerError",

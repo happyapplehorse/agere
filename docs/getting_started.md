@@ -1,6 +1,12 @@
 In this tutorial, we will use Agere to build a dialogue agent based on the OpenAI GPT model, which can conduct multiple rounds
 of conversation and call tools (for the complete code, please refer to the full example at the end).
 
+The running process and flowchat of this example are shown as follows:
+<figure markdown>
+  ![flowchart](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_getting_started_animation.gif)
+  <figcaption>The running process of the dialogue agent.</figcaption>
+</figure>
+
 Through this tutorial, you will learn the basic process of building an agent with Agere and understand the key parts of Agere.
 
 
@@ -308,7 +314,7 @@ and `function_call_handler`). We used an `at_job_end` callback in `ChatJob`, and
 The operational flow of this agent is as shown in the following diagram.
 <figure markdown>
   ![flowchart](https://raw.githubusercontent.com/happyapplehorse/happyapplehorse-assets/main/agere/agere_getting_started_flowchart.png)
-  <figcaption>The flowchat of the dialogue agent</figcaption>
+  <figcaption>The flowchat of the dialogue agent.</figcaption>
 </figure>
 
 The complete example code is:
